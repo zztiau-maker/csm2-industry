@@ -1,0 +1,2766 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>熱門訂閱課程分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#F5F6FA;
+    --surface:#FFFFFF;
+    --ink:#1A2332;
+    --ink-soft:#5C6673;
+    --ink-faint:#8A93A0;
+    --navy:#1E3A5F;
+    --navy-deep:#132A45;
+    --navy-tint:#EAF0F6;
+    --teal:#2E7D6B;
+    --teal-tint:#E4F2EE;
+    --gold:#C89B2C;
+    --gold-tint:#FBF2DC;
+    --silver:#8C97A6;
+    --silver-tint:#EEF0F3;
+    --bronze:#B8763F;
+    --bronze-tint:#F6E9DD;
+    --line:#E3E6EC;
+    --line-soft:#EDEFF3;
+    --danger:#B34242;
+    --danger-tint:#FBEAEA;
+    --up:#2E7D5A;
+    --up-tint:#E3F3EA;
+    --down:#B34242;
+    --down-tint:#FBEAEA;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(20,30,48,.05), 0 4px 14px rgba(20,30,48,.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter','Noto Sans TC',-apple-system,BlinkMacSystemFont,sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .disp{font-family:'Space Grotesk','Noto Sans TC',sans-serif;}
+  ::selection{background:var(--navy);color:#fff;}
+
+  /* ---------- header ---------- */
+  header{
+    background:linear-gradient(180deg,var(--navy) 0%, var(--navy-deep) 100%);
+    color:#fff;
+    padding:22px 28px;
+    position:sticky;top:0;z-index:40;
+    box-shadow:0 2px 16px rgba(10,20,35,.18);
+  }
+  .header-row{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:24px;
+    max-width:1320px;margin:0 auto;flex-wrap:wrap;
+  }
+  .brand{display:flex;flex-direction:column;gap:4px;min-width:260px;}
+  .brand .eyebrow{
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:#9FB3C8;font-weight:600;
+  }
+  .brand h1{
+    margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;
+  }
+  .brand .sub{color:#B9C7D6;font-size:12.5px;}
+
+  .header-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .tag-field{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.16);
+    border-radius:8px;padding:6px 6px 6px 12px;
+  }
+  .tag-field label{font-size:11.5px;color:#AEC0D2;white-space:nowrap;}
+  .tag-field input{
+    background:transparent;border:none;outline:none;color:#fff;
+    font-size:13px;width:220px;font-family:inherit;
+  }
+  .tag-field input::placeholder{color:#7C90A5;}
+  .btn{
+    font-family:inherit;font-size:13px;font-weight:600;
+    border-radius:8px;padding:9px 16px;border:1px solid transparent;
+    cursor:pointer;transition:transform .08s ease, background .15s ease, box-shadow .15s ease;
+    display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--teal);color:#fff;}
+  .btn-primary:hover{background:#256556;}
+  .btn-ghost{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.22);}
+  .btn-ghost:hover{background:rgba(255,255,255,.16);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-light{background:#fff;color:var(--navy);border-color:var(--line);}
+  .btn-light:hover{background:var(--navy-tint);}
+
+  /* ---------- layout ---------- */
+  main{max-width:1320px;margin:0 auto;padding:28px;}
+
+  /* ---------- mode select ---------- */
+  .mode-select-wrap{display:flex;justify-content:center;padding:56px 12px;}
+  .mode-select-inner{max-width:820px;width:100%;text-align:center;}
+  .mode-select-inner h2{font-size:21px;font-weight:700;margin:0 0 6px;}
+  .mode-select-inner > p{color:var(--ink-soft);font-size:13.5px;margin:0 0 28px;}
+  .mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .mode-card{
+    background:var(--surface);border:1.5px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:28px 24px;text-align:left;cursor:pointer;
+    transition:.15s;
+  }
+  .mode-card:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 6px 20px rgba(20,30,48,.1);}
+  .mode-card-icon{
+    width:44px;height:44px;border-radius:12px;background:var(--navy-tint);
+    display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+  }
+  .mode-card h3{margin:0 0 6px;font-size:16px;font-weight:700;}
+  .mode-card p{margin:0;color:var(--ink-soft);font-size:12.5px;}
+  .mode-card .tag-line{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;}
+  .mode-card .tag-line span{
+    font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:6px;
+    background:var(--teal-tint);color:var(--teal);
+  }
+
+  /* ---------- upload state (single) ---------- */
+  .upload-wrap{display:flex;justify-content:center;padding:40px 12px;}
+  .upload-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);max-width:640px;width:100%;padding:40px 36px;text-align:center;
+  }
+  .upload-icon{
+    width:56px;height:56px;border-radius:14px;margin:0 auto 18px;
+    background:var(--navy-tint);display:flex;align-items:center;justify-content:center;
+  }
+  .upload-card h2{margin:0 0 8px;font-size:19px;font-weight:700;}
+  .upload-card p{color:var(--ink-soft);margin:0 0 24px;font-size:13.5px;}
+  .dropzone{
+    border:1.5px dashed #C4CCD6;border-radius:12px;padding:30px 20px;
+    background:#FAFBFD;cursor:pointer;transition:.15s;
+  }
+  .dropzone.drag{border-color:var(--teal);background:var(--teal-tint);}
+  .dropzone .dz-title{font-weight:600;font-size:14.5px;margin-bottom:4px;}
+  .dropzone .dz-sub{color:var(--ink-faint);font-size:12.5px;}
+  .dropzone.loaded{border-style:solid;border-color:var(--teal);background:var(--teal-tint);}
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px;}
+  .chip{
+    font-size:12px;padding:6px 12px;border-radius:20px;background:var(--navy-tint);
+    color:var(--navy);border:1px solid #D7E2EC;cursor:pointer;font-weight:500;
+  }
+  .chip:hover{background:#DCE8F1;}
+  .chip.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .field-hint{font-size:11.5px;color:var(--ink-faint);margin-top:10px;}
+  .schema-note{
+    margin-top:22px;text-align:left;background:#FAFBFD;border:1px solid var(--line);
+    border-radius:10px;padding:14px 16px;font-size:12px;color:var(--ink-soft);
+  }
+  .schema-note code{
+    background:var(--navy-tint);color:var(--navy);padding:1px 5px;border-radius:4px;
+    font-size:11.5px;font-family:ui-monospace,Menlo,monospace;
+  }
+  .error-banner{
+    background:var(--danger-tint);border:1px solid #E9C6C6;color:var(--danger);
+    border-radius:10px;padding:12px 16px;font-size:13px;margin-top:16px;text-align:left;
+  }
+  .back-link{
+    display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);
+    background:none;border:none;cursor:pointer;font-family:inherit;padding:0;margin-bottom:18px;
+  }
+  .back-link:hover{color:var(--navy);}
+
+  /* ---------- compare upload ---------- */
+  .compare-upload-outer{max-width:920px;margin:0 auto;padding:8px 12px 40px;}
+  .compare-type-chips{display:flex;gap:8px;justify-content:center;margin-bottom:26px;flex-wrap:wrap;}
+  .type-chip{
+    font-size:13px;font-weight:600;padding:8px 18px;border-radius:20px;background:#fff;
+    color:var(--ink-soft);border:1.5px solid var(--line);cursor:pointer;
+  }
+  .type-chip.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .type-chip:hover:not(.active){border-color:var(--navy);color:var(--navy);}
+
+  .compare-upload-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:stretch;}
+  .period-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:14px;
+  }
+  .period-card .period-eyebrow{
+    font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);
+  }
+  .period-label-field label{font-size:12px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:6px;}
+  .period-label-field input{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 12px;
+    font-family:inherit;font-size:13.5px;color:var(--ink);
+  }
+  .period-label-field input:focus{outline:2px solid var(--teal);outline-offset:1px;}
+  .period-dropzone{
+    border:1.5px dashed #C4CCD6;border-radius:12px;padding:20px 14px;text-align:center;
+    background:#FAFBFD;cursor:pointer;transition:.15s;flex:1;display:flex;flex-direction:column;
+    justify-content:center;min-height:96px;
+  }
+  .period-dropzone.drag{border-color:var(--teal);background:var(--teal-tint);}
+  .period-dropzone.loaded{border-style:solid;border-color:var(--teal);background:var(--teal-tint);}
+  .period-dropzone .dz-title{font-weight:600;font-size:13px;margin-bottom:2px;}
+  .period-dropzone .dz-sub{color:var(--ink-faint);font-size:11.5px;}
+  .period-file-status{font-size:12px;color:var(--teal);font-weight:600;display:flex;align-items:center;gap:6px;}
+
+  .compare-vs{
+    display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;
+    font-weight:700;color:var(--ink-faint);font-size:13px;
+  }
+  .compare-actions{display:flex;justify-content:center;margin-top:26px;}
+
+  /* ---------- stat cards ---------- */
+  .stats-grid{
+    display:grid;gap:14px;margin-bottom:0;
+  }
+  .stats-grid-core{grid-template-columns:repeat(5,1fr);margin-bottom:14px;}
+  .stats-grid-highlight{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:24px;}
+  .stats-grid-highlight:empty{display:none;margin-bottom:0;}
+  .stat-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;box-shadow:var(--shadow);
+  }
+  .stat-card .label{font-size:11.5px;color:var(--ink-soft);font-weight:600;letter-spacing:.02em;}
+  .stat-card .value{font-size:26px;font-weight:700;margin-top:6px;letter-spacing:-.01em;}
+  .stat-card .value.teal{color:var(--teal);}
+  .stat-card .value.navy{color:var(--navy);}
+  .stat-card .value.text{font-size:14px;line-height:1.4;white-space:normal;word-break:break-word;margin-top:8px;}
+
+  .context-bar{
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
+    margin-bottom:18px;
+  }
+  .context-bar .ctx-title{font-size:13px;color:var(--ink-soft);}
+  .context-bar .ctx-title b{color:var(--ink);}
+  .compare-badge{
+    display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:3px 9px;
+    border-radius:6px;background:var(--navy-tint);color:var(--navy);margin-left:6px;letter-spacing:.02em;
+  }
+
+  /* ---------- compare stat cards ---------- */
+  .cstat-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;box-shadow:var(--shadow);
+  }
+  .cstat-card .label{font-size:11.5px;color:var(--ink-soft);font-weight:600;letter-spacing:.02em;margin-bottom:10px;}
+  .cstat-rows{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
+  .cstat-rows .a-row{font-size:12px;color:var(--ink-faint);}
+  .cstat-rows .b-row{font-size:20px;font-weight:700;color:var(--ink);font-family:'Space Grotesk',sans-serif;}
+  .delta-pill{
+    display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;
+    padding:3px 8px;border-radius:6px;font-family:'Space Grotesk',sans-serif;
+  }
+  .delta-up{background:var(--up-tint);color:var(--up);}
+  .delta-down{background:var(--down-tint);color:var(--down);}
+  .delta-flat{background:var(--line-soft);color:var(--ink-faint);}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;}
+  .tab-btn{
+    font-family:inherit;background:none;border:none;cursor:pointer;
+    padding:11px 6px;margin-right:22px;font-size:14px;font-weight:600;color:var(--ink-faint);
+    border-bottom:2.5px solid transparent;transition:.12s;
+  }
+  .tab-btn:hover{color:var(--ink-soft);}
+  .tab-btn.active{color:var(--navy);border-bottom-color:var(--teal);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* ---------- panel toolbar ---------- */
+  .panel-toolbar{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;
+  }
+  .search-box{
+    display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);
+    border-radius:8px;padding:8px 12px;min-width:260px;
+  }
+  .search-box input{border:none;outline:none;font-family:inherit;font-size:13px;width:100%;}
+  .panel-meta{font-size:12px;color:var(--ink-faint);}
+
+  /* ---------- table ---------- */
+  .table-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .table-scroll{overflow-x:auto;}
+  table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px;}
+  thead th{
+    background:var(--navy-tint);color:var(--navy);text-align:left;
+    font-size:11.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;
+    padding:10px 12px;white-space:normal;word-break:break-word;line-height:1.3;
+    position:sticky;top:0;cursor:pointer;user-select:none;
+    border-bottom:1px solid #D7E2EC;vertical-align:middle;
+  }
+  thead th:hover{background:#DCE8F1;}
+  thead th .sort-arrow{font-size:10px;margin-left:4px;color:var(--ink-faint);}
+  thead th.active-sort{color:var(--teal);}
+  thead th.active-sort .sort-arrow{color:var(--teal);}
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--line-soft);color:var(--ink);white-space:normal;word-break:break-word;overflow-wrap:break-word;vertical-align:middle;}
+  tbody tr:hover{background:#FAFBFD;}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .nowrap-cell{white-space:nowrap !important;}
+  .center{text-align:center;}
+
+  /* ---------- benchmark (company vs industry) side-by-side tables ---------- */
+  thead th.th-side-a{background:var(--navy-tint);color:var(--navy);cursor:default;}
+  thead th.th-side-b{background:var(--teal-tint);color:var(--teal);cursor:default;}
+  td.td-side-a{border-right:2px solid var(--line);}
+  td.td-side-b{background:#FAFDFC;}
+
+  .rank-pill{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:26px;height:26px;border-radius:8px;font-weight:700;font-size:12.5px;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .rank-1{background:var(--gold-tint);color:var(--gold);}
+  .rank-2{background:var(--silver-tint);color:var(--silver);}
+  .rank-3{background:var(--bronze-tint);color:var(--bronze);}
+  .rank-n{color:var(--ink-soft);}
+
+  .name-strong{font-weight:600;color:var(--ink);}
+  .name-sub{color:var(--ink-faint);font-size:11.5px;}
+  .cat-badge{
+    font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;
+    background:var(--teal-tint);color:var(--teal);white-space:nowrap;
+  }
+  .status-badge{
+    font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;
+  }
+  .status-new{background:var(--up-tint);color:var(--up);}
+  .status-out{background:var(--down-tint);color:var(--down);}
+  .status-both{background:var(--line-soft);color:var(--ink-faint);}
+
+  .rank-change{font-weight:700;font-size:12.5px;font-family:'Space Grotesk',sans-serif;display:inline-flex;align-items:center;gap:2px;}
+  .rc-up{color:var(--up);}
+  .rc-down{color:var(--down);}
+  .rc-flat{color:var(--ink-faint);}
+  .growth-val{font-weight:700;font-size:12.5px;font-family:'Space Grotesk',sans-serif;}
+  .growth-up{color:var(--up);}
+  .growth-down{color:var(--down);}
+  .growth-flat{color:var(--ink-faint);}
+
+  .pager{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--line);background:#FAFBFD;}
+  .pager .pg-info{font-size:12px;color:var(--ink-faint);}
+  .pager .pg-btns{display:flex;gap:6px;}
+  .pg-btn{
+    border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;
+    font-size:12px;cursor:pointer;font-family:inherit;color:var(--ink-soft);
+  }
+  .pg-btn:hover:not(:disabled){background:var(--navy-tint);color:var(--navy);}
+  .pg-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .empty-state{padding:40px;text-align:center;color:var(--ink-faint);font-size:13px;}
+
+  /* ---------- skill gap radar ---------- */
+  .gap-intro-card{
+    display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+    background:linear-gradient(135deg,var(--navy-tint) 0%, #F4F0E1 100%);
+    border:1px solid #D7E2EC;border-radius:14px;padding:20px 24px;margin-bottom:16px;
+  }
+  .gap-intro-text h3{margin:0 0 6px;font-size:15.5px;font-weight:700;color:var(--navy);}
+  .gap-intro-text p{margin:0;font-size:12.5px;color:var(--ink-soft);max-width:640px;line-height:1.55;}
+  .gap-scope-row{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;}
+  .gap-scope-row label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-soft);cursor:pointer;font-weight:500;}
+  .gap-scope-row input{accent-color:var(--teal);cursor:pointer;}
+
+  .gap-step-card{
+    display:flex;gap:16px;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:20px 22px;margin-bottom:14px;box-shadow:var(--shadow);
+  }
+  .gap-step-num{
+    flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .gap-step-body{flex:1;min-width:0;}
+  .gap-step-body h4{margin:0 0 4px;font-size:14px;font-weight:700;color:var(--ink);}
+  .gap-step-body p{margin:0 0 10px;font-size:12px;color:var(--ink-soft);line-height:1.5;}
+  .gap-prompt-preview{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--ink-soft);
+    background:#FAFBFD;resize:vertical;margin-bottom:10px;line-height:1.5;
+  }
+  .gap-copy-hint{font-size:11.5px;color:var(--teal);margin-left:10px;font-weight:600;}
+  .gap-progress{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:14px 18px;margin-bottom:16px;font-size:12.5px;color:var(--ink-soft);
+  }
+  .gap-progress .gp-bar-track{background:var(--line-soft);border-radius:6px;height:6px;margin-top:8px;overflow:hidden;}
+  .gap-progress .gp-bar-fill{background:var(--teal);height:100%;border-radius:6px;transition:width .3s ease;}
+  .gap-disclaimer{
+    font-size:11.5px;color:var(--ink-faint);background:#FAFBFD;border:1px solid var(--line);
+    border-radius:10px;padding:12px 16px;margin-top:14px;line-height:1.6;
+  }
+  .trend-score-num{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;}
+  .gap-badge{
+    display:inline-block;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;white-space:normal;
+  }
+  .gap-badge.risk{background:var(--danger-tint);color:var(--danger);}
+  .gap-badge.normal{background:var(--line-soft);color:var(--ink-soft);}
+  .gap-badge.covered{background:var(--teal-tint);color:var(--teal);}
+  .internal-level{font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;}
+  .internal-level.low{background:var(--down-tint);color:var(--down);}
+  .internal-level.mid{background:var(--gold-tint);color:var(--gold);}
+  .internal-level.high{background:var(--up-tint);color:var(--up);}
+  #gapTable tbody tr, #cGapTable tbody tr{cursor:pointer;}
+  .gap-retry-btn{
+    font-size:11px;color:var(--teal);background:none;border:1px solid var(--teal);border-radius:6px;
+    padding:3px 9px;cursor:pointer;font-family:inherit;font-weight:600;
+  }
+  .gap-insight-text{font-size:12.5px;color:var(--ink-soft);line-height:1.5;}
+
+  /* ---------- field logic legend ---------- */
+  .legend-card{
+    max-width:1320px;margin:24px auto 0;padding:0 28px;
+  }
+  .legend-card summary{
+    cursor:pointer;list-style:none;font-size:12.5px;font-weight:600;color:var(--ink-soft);
+    padding:10px 16px;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    display:inline-flex;align-items:center;gap:6px;user-select:none;
+  }
+  .legend-card summary::-webkit-details-marker{display:none;}
+  .legend-card summary:hover{color:var(--navy);border-color:#C9D6E3;}
+  .legend-card summary::after{content:'▾';font-size:10px;color:var(--ink-faint);margin-left:2px;}
+  .legend-card[open] summary::after{content:'▴';}
+  .legend-body{
+    background:var(--surface);border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;
+    padding:18px 22px 20px;margin-top:-1px;
+  }
+  .legend-body h4{margin:14px 0 6px;font-size:12.5px;font-weight:700;color:var(--navy);}
+  .legend-body h4:first-child{margin-top:0;}
+  .legend-body ul{margin:0;padding-left:18px;}
+  .legend-body li{font-size:12px;color:var(--ink-soft);line-height:1.7;}
+
+  footer{max-width:1320px;margin:0 auto;padding:8px 28px 40px;color:var(--ink-faint);font-size:11.5px;}
+
+  @media(max-width:1100px){
+    .stats-grid-core{grid-template-columns:repeat(3,1fr);}
+  }
+  @media(max-width:900px){
+    .mode-cards{grid-template-columns:1fr;}
+    .compare-upload-grid{grid-template-columns:1fr;}
+    .compare-vs{padding:4px 0;}
+  }
+  @media(max-width:720px){
+    .stats-grid-core{grid-template-columns:repeat(2,1fr);}
+    .header-row{flex-direction:column;}
+    .tag-field input{width:150px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div class="brand">
+      <span class="eyebrow">Hahow for Business · 訂閱課程分析工具 by Tia</span>
+      <h1 class="disp">熱門訂閱課程分析</h1>
+      <span class="sub" id="headerSub">請上傳 Datastudio 內的熱門訂閱課程觀看 &amp; 評價資料</span>
+    </div>
+    <div class="header-controls">
+      <div class="tag-field">
+        <label for="industryTag">產業範圍</label>
+        <input id="industryTag" type="text" placeholder="例如：半導體業、軟體/網路" />
+      </div>
+      <button class="btn btn-ghost" id="reuploadBtn" style="display:none;">重新開始</button>
+      <button class="btn btn-primary" id="exportBtn" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        匯出 Excel
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== MODE SELECT ===================== -->
+  <div id="modeSelectWrap" class="mode-select-wrap">
+    <div class="mode-select-inner">
+      <h2>選擇分析模式</h2>
+      <p>先決定這次要看單一區間的排行，還是比較兩個區間的變化（MoM／YoY）</p>
+      <div class="mode-cards">
+        <div class="mode-card" id="modeSingleCard">
+          <div class="mode-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+          </div>
+          <h3>單一區間分析</h3>
+          <p>上傳一份課程資料，查看課程分類排名、熱門課程排行與熱門講師排名。</p>
+          <div class="tag-line"><span>單檔上傳</span></div>
+        </div>
+        <div class="mode-card" id="modeCompareCard">
+          <div class="mode-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <h3>期間比較分析</h3>
+          <p>上傳兩份相同維度的資料，比較排名與註冊人次的成長變化。可以是兩個時間區間（如 6 月 vs 7 月），也可以是「指定企業」vs「產業對標範圍」。</p>
+          <div class="tag-line"><span>MoM</span><span>YoY</span><span>企業 vs 產業</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== UPLOAD STATE (single) ===================== -->
+  <div id="uploadWrap" class="upload-wrap" style="display:none;">
+    <div class="upload-card">
+      <button class="back-link" id="backFromSingle">← 返回選擇分析模式</button>
+      <div class="upload-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <h2>上傳課程資料開始分析</h2>
+      <p>先填寫本次分析的產業範圍標籤，再拖曳或選擇 CSV 檔案。分析結果只留在您的瀏覽器裡，不會上傳到任何伺服器。</p>
+
+      <div class="chip-row" id="chipRow">
+        <span class="chip" data-tag="半導體業">半導體業</span>
+        <span class="chip" data-tag="軟體/網路">軟體/網路</span>
+        <span class="chip" data-tag="電腦/消費性電子製造">電腦/消費性電子製造</span>
+        <span class="chip" data-tag="金融/保險">金融/保險</span>
+        <span class="chip" data-tag="零售/流通">零售/流通</span>
+        <span class="chip" data-tag="製造業">製造業</span>
+      </div>
+      <div class="field-hint">點選可加入上方「產業範圍」欄位，也可以直接手動輸入</div>
+
+      <div class="dropzone" id="dropzone" style="margin-top:24px;">
+        <div class="dz-title">拖曳 CSV 檔案到這裡，或點擊選擇檔案</div>
+        <div class="dz-sub">支援 .csv（UTF-8），欄位需與範本一致</div>
+        <input type="file" id="fileInput" accept=".csv" style="display:none;">
+      </div>
+
+      <div class="schema-note">
+        需要的欄位（順序不拘）：
+        <code>課程分類</code> <code>子分類</code> <code>課程名稱</code> <code>講師名稱</code>
+        <code>上架時間</code> <code>課程時長</code> <code>課程評價</code> <code>註冊人次</code>
+        <code>觀看人次</code> <code>累計觀看小時</code>
+      </div>
+
+      <div id="errorBanner" class="error-banner" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== COMPARE UPLOAD STATE ===================== -->
+  <div id="compareUploadWrap" style="display:none;">
+    <div class="compare-upload-outer">
+      <button class="back-link" id="backFromCompare">← 返回選擇分析模式</button>
+
+      <div class="compare-type-chips" id="compareTypeChips">
+        <span class="type-chip active" data-type="MoM">MoM 月對月</span>
+        <span class="type-chip" data-type="YoY">YoY 年對年</span>
+        <span class="type-chip" data-type="benchmark">企業 vs 產業對標</span>
+        <span class="type-chip" data-type="custom">自訂區間</span>
+      </div>
+
+      <div class="compare-upload-grid">
+        <div class="period-card">
+          <span class="period-eyebrow" id="periodAEyebrow">期間 A（基準期）</span>
+          <div class="period-label-field">
+            <label for="periodALabel" id="periodALabelText">區間標籤</label>
+            <input type="text" id="periodALabel" placeholder="例如：2026 年 6 月">
+            <div id="periodAMonthWrap">
+              <input type="month" id="periodAMonth" style="margin-top:8px;width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;">
+            </div>
+          </div>
+          <div class="period-dropzone" id="dropzoneA">
+            <div class="dz-title">拖曳 CSV 或點擊選擇檔案</div>
+            <div class="dz-sub" id="dropzoneASub">期間 A 的課程觀看資料</div>
+            <input type="file" id="fileInputA" accept=".csv" style="display:none;">
+          </div>
+          <div class="period-file-status" id="statusA" style="display:none;"></div>
+        </div>
+
+        <div class="compare-vs">VS</div>
+
+        <div class="period-card">
+          <span class="period-eyebrow" id="periodBEyebrow">期間 B（比較期）</span>
+          <div class="period-label-field">
+            <label for="periodBLabel" id="periodBLabelText">區間標籤</label>
+            <input type="text" id="periodBLabel" placeholder="例如：2026 年 7 月">
+            <div id="periodBMonthWrap">
+              <input type="month" id="periodBMonth" style="margin-top:8px;width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;">
+            </div>
+          </div>
+          <div class="period-dropzone" id="dropzoneB">
+            <div class="dz-title">拖曳 CSV 或點擊選擇檔案</div>
+            <div class="dz-sub" id="dropzoneBSub">期間 B 的課程觀看資料</div>
+            <input type="file" id="fileInputB" accept=".csv" style="display:none;">
+          </div>
+          <div class="period-file-status" id="statusB" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="schema-note" style="max-width:640px;margin-left:auto;margin-right:auto;margin-top:20px;">
+        兩份檔案需為<b>相同欄位結構</b>：
+        <code>課程分類</code> <code>子分類</code> <code>課程名稱</code> <code>講師名稱</code>
+        <code>上架時間</code> <code>課程時長</code> <code>課程評價</code> <code>註冊人次</code>
+        <code>觀看人次</code> <code>累計觀看小時</code>
+      </div>
+
+      <div id="compareErrorBanner" class="error-banner" style="display:none;max-width:640px;margin:16px auto 0;"></div>
+
+      <div class="compare-actions">
+        <button class="btn btn-primary" id="compareGoBtn" disabled style="padding:12px 28px;font-size:14px;">開始比較分析</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== DASHBOARD STATE (single) ===================== -->
+  <div id="dashboard" style="display:none;">
+
+    <div class="context-bar">
+      <div class="ctx-title">產業範圍：<b id="ctxIndustry">—</b> ・ 資料來源：<b id="ctxFile">—</b></div>
+      <div class="panel-meta" id="ctxTimestamp"></div>
+    </div>
+
+    <div class="stats-grid stats-grid-core" id="statsGrid"></div>
+    <div class="stats-grid stats-grid-highlight" id="statsGridHighlight"></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="cat">課程分類排名</button>
+      <button class="tab-btn" data-tab="course">熱門課程排行</button>
+      <button class="tab-btn" data-tab="instr">熱門講師排名</button>
+      <button class="tab-btn" data-tab="gap">技能缺口雷達 ⚡</button>
+    </div>
+
+    <!-- Tab 1: category ranking -->
+    <div class="tab-panel active" id="panel-cat">
+      <div class="table-card">
+        <div class="table-scroll">
+          <table id="catTable">
+            <colgroup>
+              <col style="width:7%"><col style="width:14%"><col style="width:10%">
+              <col style="width:14%"><col style="width:14%"><col style="width:11%"><col style="width:14%"><col style="width:16%">
+            </colgroup>
+            <thead><tr>
+              <th data-key="rank" class="center">排名</th>
+              <th data-key="category">課程分類</th>
+              <th data-key="count" class="num">課程數</th>
+              <th data-key="views" class="num">總觀看人次</th>
+              <th data-key="reg" class="num">總註冊人次</th>
+              <th data-key="rating" class="num">平均評價</th>
+              <th data-key="avgViews" class="num">平均每堂觀看</th>
+              <th data-key="topSubCategory">最熱門子分類</th>
+            </tr></thead>
+            <tbody id="catTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: course ranking -->
+    <div class="tab-panel" id="panel-course">
+      <div class="panel-toolbar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A93A0" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="courseSearch" placeholder="搜尋課程名稱、講師或分類…">
+        </div>
+        <div class="panel-meta" id="courseCount"></div>
+      </div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table id="courseTable">
+            <colgroup>
+              <col style="width:6%"><col style="width:7%"><col style="width:9%"><col style="width:8%">
+              <col style="width:18%"><col style="width:12%"><col style="width:8%">
+              <col style="width:8%"><col style="width:8%"><col style="width:6%"><col style="width:10%">
+            </colgroup>
+            <thead><tr>
+              <th data-key="rank" class="center">總排名</th>
+              <th data-key="catRank" class="center">分類內排名</th>
+              <th data-key="category">課程分類</th>
+              <th data-key="subCategory">子分類</th>
+              <th data-key="courseName">課程名稱</th>
+              <th data-key="instructor">講師名稱</th>
+              <th data-key="duration" class="center">課程時長</th>
+              <th data-key="views" class="num">觀看人次</th>
+              <th data-key="reg" class="num">註冊人次</th>
+              <th data-key="rating" class="num">課程評價</th>
+              <th data-key="hours" class="num nowrap-cell">累計觀看小時</th>
+            </tr></thead>
+            <tbody id="courseTbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="coursePager"></div>
+      </div>
+    </div>
+
+    <!-- Tab 3: instructor ranking -->
+    <div class="tab-panel" id="panel-instr">
+      <div class="panel-toolbar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A93A0" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="instrSearch" placeholder="搜尋講師名稱…">
+        </div>
+        <div class="panel-meta" id="instrCount"></div>
+      </div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table id="instrTable">
+            <colgroup>
+              <col style="width:8%"><col style="width:26%"><col style="width:11%">
+              <col style="width:16%"><col style="width:16%"><col style="width:12%"><col style="width:11%">
+            </colgroup>
+            <thead><tr>
+              <th data-key="rank" class="center">排名</th>
+              <th data-key="instructor">講師名稱</th>
+              <th data-key="count" class="num">開課數</th>
+              <th data-key="views" class="num">總觀看人次</th>
+              <th data-key="reg" class="num">總註冊人次</th>
+              <th data-key="rating" class="num">平均評價</th>
+              <th data-key="avgViews" class="num">平均每堂觀看</th>
+            </tr></thead>
+            <tbody id="instrTbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="instrPager"></div>
+      </div>
+    </div>
+
+    <!-- Tab 4: skill gap radar -->
+    <div class="tab-panel" id="panel-gap">
+      <div class="gap-intro-card">
+        <div class="gap-intro-text">
+          <h3>時事趨勢與技能缺口預警</h3>
+          <p>依「子分類」為單位，比對近期產業話題熱度與內部平均註冊人次，找出「外部話題熱、內部訓練投入卻偏低」的高風險技能缺口。此功能需要一個具備即時網路搜尋能力的 AI 聊天工具（例如 Claude.ai）協助搜尋，步驟如下。</p>
+          <div class="gap-scope-row">
+            <label><input type="radio" name="gapScope" value="top10" checked> 只分析前 10 大子分類（依註冊人次）</label>
+            <label><input type="radio" name="gapScope" value="all"> 分析全部子分類</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="gap-step-card">
+        <div class="gap-step-num">1</div>
+        <div class="gap-step-body">
+          <h4>複製下方提示詞，貼到 Claude.ai（需開啟網路搜尋）或其他支援即時搜尋的 AI 聊天工具</h4>
+          <p>提示詞已自動帶入您上傳資料算出的內部註冊數據，AI 會搜尋近 30 天新聞並回傳結構化結果。</p>
+          <textarea id="gapPromptPreview" class="gap-prompt-preview" readonly rows="5"></textarea>
+          <button class="btn btn-light" id="gapCopyBtn">📋 複製提示詞</button>
+          <span class="gap-copy-hint" id="gapCopyHint"></span>
+        </div>
+      </div>
+
+      <div class="gap-step-card">
+        <div class="gap-step-num">2</div>
+        <div class="gap-step-body">
+          <h4>將 AI 回傳的完整內容（含 JSON）貼在下方，然後套用</h4>
+          <textarea id="gapPasteBox" class="gap-prompt-preview" rows="6" placeholder="請將 AI 聊天工具回覆的完整文字貼在這裡（不用自己抽取 JSON，工具會自動辨識）"></textarea>
+          <button class="btn btn-primary" id="gapApplyBtn">✅ 套用結果並產生表格</button>
+        </div>
+      </div>
+
+      <div class="error-banner" id="gapError" style="display:none;"></div>
+      <div class="table-card" id="gapTableWrap" style="display:none;">
+        <div class="table-scroll">
+          <table id="gapTable">
+            <colgroup>
+              <col style="width:16%"><col style="width:11%"><col style="width:13%">
+              <col style="width:11%"><col style="width:16%"><col style="width:11%"><col style="width:22%">
+            </colgroup>
+            <thead><tr>
+              <th class="center">子分類</th>
+              <th class="num center">內部平均註冊</th>
+              <th class="center">內部註冊水準</th>
+              <th class="num center">時事熱度評分</th>
+              <th>近期話題摘要</th>
+              <th class="center">缺口標籤</th>
+              <th>商業效益說明</th>
+            </tr></thead>
+            <tbody id="gapTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="gap-disclaimer" id="gapDisclaimer" style="display:none;">
+        ⚠️ 以上時事熱度、話題摘要與商業效益說明為 AI 搜尋網路新聞後生成，僅供 HR 初步篩選推廣課程參考，正式決策前請人工複核來源新聞。點選子分類列可跳轉至「熱門課程排行」篩選該子分類課程。
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== COMPARE DASHBOARD ===================== -->
+  <div id="compareDashboard" style="display:none;">
+
+    <div class="context-bar">
+      <div class="ctx-title">
+        產業範圍：<b id="cCtxIndustry">—</b>
+        <span class="compare-badge" id="cCtxType">MoM</span>
+        ・ <b id="cCtxLabelA">—</b> → <b id="cCtxLabelB">—</b>
+      </div>
+      <div class="panel-meta" id="cCtxTimestamp"></div>
+    </div>
+
+    <div class="stats-grid stats-grid-core" id="cStatsGrid"></div>
+    <div class="stats-grid stats-grid-highlight" id="cStatsGridHighlight"></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-ctab="cat">課程分類排名比較</button>
+      <button class="tab-btn" data-ctab="course">熱門課程排行比較</button>
+      <button class="tab-btn" data-ctab="instr">熱門講師排名比較</button>
+      <button class="tab-btn" data-ctab="gap">技能缺口雷達 ⚡</button>
+    </div>
+
+    <!-- Compare Tab 1: category -->
+    <div class="tab-panel active" id="cpanel-cat">
+      <div class="table-card" id="cCatMergedWrap">
+        <div class="table-scroll">
+          <table id="cCatTable">
+            <colgroup>
+              <col style="width:16%"><col style="width:13%"><col style="width:10%">
+              <col style="width:13%"><col style="width:10%"><col style="width:11%"><col style="width:11%">
+              <col style="width:8%"><col style="width:8%">
+            </colgroup>
+            <thead><tr>
+              <th data-key="category">課程分類</th>
+              <th data-key="viewsA" class="num" id="cCatHeadViewsA">期間A觀看人次</th>
+              <th data-key="rankA" class="center" id="cCatHeadRankA">期間A排名</th>
+              <th data-key="viewsB" class="num" id="cCatHeadViewsB">期間B觀看人次</th>
+              <th data-key="rankB" class="center" id="cCatHeadRankB">期間B排名</th>
+              <th data-key="rankChange" class="center">排名變化</th>
+              <th data-key="growth" class="num" id="cCatHeadGrowth">成長率</th>
+              <th data-key="topSubA" id="cCatHeadTopSubA">A最熱門子分類</th>
+              <th data-key="topSubB" id="cCatHeadTopSubB">B最熱門子分類</th>
+            </tr></thead>
+            <tbody id="cCatTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="table-card" id="cCatBenchmarkWrap" style="display:none;">
+        <div class="table-scroll">
+          <table id="cCatBenchmarkTable">
+            <colgroup>
+              <col style="width:8%"><col style="width:19%"><col style="width:11%"><col style="width:12%">
+              <col style="width:8%"><col style="width:19%"><col style="width:11%"><col style="width:12%">
+            </colgroup>
+            <thead><tr>
+              <th class="center th-side-a">排名</th>
+              <th class="th-side-a" id="cCatBenchHeadNameA">企業：課程分類</th>
+              <th class="num th-side-a" id="cCatBenchHeadRegA">企業：註冊人次</th>
+              <th class="th-side-a" id="cCatBenchHeadSubA">企業：最熱門子分類</th>
+              <th class="center th-side-b">排名</th>
+              <th class="th-side-b" id="cCatBenchHeadNameB">產業：課程分類</th>
+              <th class="num th-side-b" id="cCatBenchHeadRegB">產業：註冊人次</th>
+              <th class="th-side-b" id="cCatBenchHeadSubB">產業：最熱門子分類</th>
+            </tr></thead>
+            <tbody id="cCatBenchmarkTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compare Tab 2: course -->
+    <div class="tab-panel" id="cpanel-course">
+      <div class="panel-toolbar" id="cCourseMergedToolbar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A93A0" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="cCourseSearch" placeholder="搜尋課程名稱、講師或分類…">
+        </div>
+        <div class="panel-meta" id="cCourseCount"></div>
+      </div>
+      <div class="table-card" id="cCourseMergedWrap">
+        <div class="table-scroll">
+          <table id="cCourseTable">
+            <colgroup>
+              <col style="width:6%"><col style="width:9%"><col style="width:15%"><col style="width:11%">
+              <col style="width:7%">
+              <col style="width:8%"><col style="width:6%"><col style="width:8%"><col style="width:6%">
+              <col style="width:7%"><col style="width:6%"><col style="width:11%">
+            </colgroup>
+            <thead><tr>
+              <th data-key="status" class="center">狀態</th>
+              <th data-key="category">課程分類</th>
+              <th data-key="courseName">課程名稱</th>
+              <th data-key="instructor">講師名稱</th>
+              <th data-key="duration" class="center">課程時長</th>
+              <th data-key="viewsA" class="num" id="cCourseHeadViewsA">期間A註冊</th>
+              <th data-key="rankA" class="center" id="cCourseHeadRankA">期間A排名</th>
+              <th data-key="viewsB" class="num" id="cCourseHeadViewsB">期間B註冊</th>
+              <th data-key="rankB" class="center" id="cCourseHeadRankB">期間B排名</th>
+              <th data-key="rankChange" class="center">排名變化</th>
+              <th data-key="growth" class="num" id="cCourseHeadGrowth">成長率</th>
+              <th data-key="hours" class="num nowrap-cell">累計觀看小時</th>
+            </tr></thead>
+            <tbody id="cCourseTbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="cCoursePager"></div>
+      </div>
+
+      <div class="table-card" id="cCourseBenchmarkWrap" style="display:none;">
+        <div class="table-scroll">
+          <table id="cCourseBenchmarkTable">
+            <colgroup>
+              <col style="width:5%"><col style="width:9%"><col style="width:18%"><col style="width:12%"><col style="width:6%">
+              <col style="width:5%"><col style="width:9%"><col style="width:18%"><col style="width:12%"><col style="width:6%">
+            </colgroup>
+            <thead><tr>
+              <th class="center th-side-a">排名</th>
+              <th class="th-side-a">課程分類</th>
+              <th class="th-side-a" id="cCourseBenchHeadNameA">企業：課程名稱</th>
+              <th class="th-side-a">講師名稱</th>
+              <th class="num th-side-a" id="cCourseBenchHeadRegA">企業：註冊人次</th>
+              <th class="center th-side-b">排名</th>
+              <th class="th-side-b">課程分類</th>
+              <th class="th-side-b" id="cCourseBenchHeadNameB">產業：課程名稱</th>
+              <th class="th-side-b">講師名稱</th>
+              <th class="num th-side-b" id="cCourseBenchHeadRegB">產業：註冊人次</th>
+            </tr></thead>
+            <tbody id="cCourseBenchmarkTbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="cCourseBenchmarkPager"></div>
+      </div>
+    </div>
+
+    <!-- Compare Tab 3: instructor -->
+    <div class="tab-panel" id="cpanel-instr">
+      <div class="panel-toolbar" id="cInstrMergedToolbar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A93A0" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="cInstrSearch" placeholder="搜尋講師名稱…">
+        </div>
+        <div class="panel-meta" id="cInstrCount"></div>
+      </div>
+      <div class="table-card" id="cInstrMergedWrap">
+        <div class="table-scroll">
+          <table id="cInstrTable">
+            <colgroup>
+              <col style="width:9%"><col style="width:24%"><col style="width:14%"><col style="width:10%">
+              <col style="width:14%"><col style="width:10%"><col style="width:10%"><col style="width:9%">
+            </colgroup>
+            <thead><tr>
+              <th data-key="status" class="center">狀態</th>
+              <th data-key="instructor">講師名稱</th>
+              <th data-key="viewsA" class="num" id="cInstrHeadViewsA">期間A觀看人次</th>
+              <th data-key="rankA" class="center" id="cInstrHeadRankA">期間A排名</th>
+              <th data-key="viewsB" class="num" id="cInstrHeadViewsB">期間B觀看人次</th>
+              <th data-key="rankB" class="center" id="cInstrHeadRankB">期間B排名</th>
+              <th data-key="rankChange" class="center">排名變化</th>
+              <th data-key="growth" class="num" id="cInstrHeadGrowth">成長率</th>
+            </tr></thead>
+            <tbody id="cInstrTbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="cInstrPager"></div>
+      </div>
+
+      <div class="table-card" id="cInstrBenchmarkWrap" style="display:none;">
+        <div class="table-scroll">
+          <table id="cInstrBenchmarkTable">
+            <colgroup>
+              <col style="width:9%"><col style="width:26%"><col style="width:15%">
+              <col style="width:9%"><col style="width:26%"><col style="width:15%">
+            </colgroup>
+            <thead><tr>
+              <th class="center th-side-a">排名</th>
+              <th class="th-side-a" id="cInstrBenchHeadNameA">企業：講師名稱</th>
+              <th class="num th-side-a" id="cInstrBenchHeadRegA">企業：註冊人次</th>
+              <th class="center th-side-b">排名</th>
+              <th class="th-side-b" id="cInstrBenchHeadNameB">產業：講師名稱</th>
+              <th class="num th-side-b" id="cInstrBenchHeadRegB">產業：註冊人次</th>
+            </tr></thead>
+            <tbody id="cInstrBenchmarkTbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="cInstrBenchmarkPager"></div>
+      </div>
+    </div>
+
+    <!-- Compare Tab 4: skill gap radar -->
+    <div class="tab-panel" id="cpanel-gap">
+      <div class="gap-intro-card">
+        <div class="gap-intro-text">
+          <h3>時事趨勢與技能缺口預警</h3>
+          <p>以「<span id="cGapPeriodLabel">期間 B</span>」的課程觀看數據為基礎，比對近期產業話題熱度，找出「外部話題熱、內部訓練投入卻偏低」的高風險技能缺口。此功能需要一個具備即時網路搜尋能力的 AI 聊天工具（例如 Claude.ai）協助搜尋，步驟如下。</p>
+          <div class="gap-scope-row">
+            <label><input type="radio" name="cGapScope" value="top10" checked> 只分析前 10 大子分類（依註冊人次）</label>
+            <label><input type="radio" name="cGapScope" value="all"> 分析全部子分類</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="gap-step-card">
+        <div class="gap-step-num">1</div>
+        <div class="gap-step-body">
+          <h4>複製下方提示詞，貼到 Claude.ai（需開啟網路搜尋）或其他支援即時搜尋的 AI 聊天工具</h4>
+          <p>提示詞已自動帶入您上傳資料算出的內部註冊數據，AI 會搜尋近 30 天新聞並回傳結構化結果。</p>
+          <textarea id="cGapPromptPreview" class="gap-prompt-preview" readonly rows="5"></textarea>
+          <button class="btn btn-light" id="cGapCopyBtn">📋 複製提示詞</button>
+          <span class="gap-copy-hint" id="cGapCopyHint"></span>
+        </div>
+      </div>
+
+      <div class="gap-step-card">
+        <div class="gap-step-num">2</div>
+        <div class="gap-step-body">
+          <h4>將 AI 回傳的完整內容（含 JSON）貼在下方，然後套用</h4>
+          <textarea id="cGapPasteBox" class="gap-prompt-preview" rows="6" placeholder="請將 AI 聊天工具回覆的完整文字貼在這裡（不用自己抽取 JSON，工具會自動辨識）"></textarea>
+          <button class="btn btn-primary" id="cGapApplyBtn">✅ 套用結果並產生表格</button>
+        </div>
+      </div>
+
+      <div class="error-banner" id="cGapError" style="display:none;"></div>
+      <div class="table-card" id="cGapTableWrap" style="display:none;">
+        <div class="table-scroll">
+          <table id="cGapTable">
+            <colgroup>
+              <col style="width:16%"><col style="width:11%"><col style="width:13%">
+              <col style="width:11%"><col style="width:16%"><col style="width:11%"><col style="width:22%">
+            </colgroup>
+            <thead><tr>
+              <th class="center">子分類</th>
+              <th class="num center">內部平均註冊</th>
+              <th class="center">內部註冊水準</th>
+              <th class="num center">時事熱度評分</th>
+              <th>近期話題摘要</th>
+              <th class="center">缺口標籤</th>
+              <th>商業效益說明</th>
+            </tr></thead>
+            <tbody id="cGapTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="gap-disclaimer" id="cGapDisclaimer" style="display:none;">
+        ⚠️ 以上時事熱度、話題摘要與商業效益說明為 AI 搜尋網路新聞後生成，僅供 HR 初步篩選推廣課程參考，正式決策前請人工複核來源新聞。點選子分類列可跳轉至「熱門課程排行比較」篩選該子分類課程。
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<details class="legend-card">
+  <summary>📐 欄位計算邏輯說明</summary>
+  <div class="legend-body">
+
+    <h4>課程分類排名 / 熱門講師排名</h4>
+    <ul>
+      <li>排名依「總註冊人次」由高到低排序，數值相同則名次並列。</li>
+      <li>平均每堂觀看人次 = 該分類（或該講師）總觀看人次 ÷ 課程數。</li>
+      <li>平均課程評價 = 該分類（或該講師）旗下課程評價的平均值，忽略沒有評價的課程。</li>
+    </ul>
+
+    <h4>熱門課程排行</h4>
+    <ul>
+      <li>總排名：依全部課程的「註冊人次」由高到低排序。</li>
+      <li>分類內排名：只在同一個「課程分類」內部依註冊人次排序。</li>
+      <li>課程時長、累計觀看小時為原始資料直接帶出的欄位，不涉及計算。</li>
+    </ul>
+
+    <h4>期間比較（MoM／YoY）</h4>
+    <ul>
+      <li>排名變化 = 期間A排名 − 期間B排名。正值（▲）代表名次進步（數字變小），負值（▼）代表退步。</li>
+      <li>成長率（或企業 vs 產業對標模式下顯示為「落差」）= (資料B註冊人次 − 資料A註冊人次) ÷ 資料A註冊人次 × 100%，公式相同，只是欄位名稱依比較情境調整。</li>
+      <li>只在期間B出現、期間A沒有 → 標記「新上榜」；只在期間A出現、期間B沒有 → 標記「掉出榜單」。</li>
+      <li>課程比對依「課程名稱＋講師名稱」作為配對依據；分類與講師比對則依名稱本身配對。</li>
+      <li>最上方卡片中的「最熱門課程／講師」為期間B（本期）排名第一者；「新上榜」為只在期間B出現、且期間B排名最前面者；「進步最多」為在兩期間皆有出現、且排名進步名次數最多者，若沒有符合條件的項目則顯示「無」。</li>
+    </ul>
+
+    <h4>技能缺口雷達 ⚡</h4>
+    <ul>
+      <li>分析單位是「子分類」，不是單一課程。</li>
+      <li>內部平均註冊：該子分類全部課程「總註冊人次 ÷ 課程數」。</li>
+      <li>內部註冊百分位：把同一批資料中所有子分類依「平均註冊人次」由低到高排序後換算成 0～100% 的相對名次，數字越低代表企業內部對這個技能領域的訓練投入相對越少（是跟同批資料互相比較的相對值，不是絕對標準）。</li>
+      <li>內部註冊水準：百分位 ≤40% 顯示「偏低」；41～60% 顯示「中等」；≥61% 顯示「偏高」。</li>
+      <li>時事熱度評分／近期話題摘要／商業效益說明：由您貼給 AI 分析後回傳，AI 依搜尋到的近期新聞自行評估，本工具不會自行計算或驗證這幾項數值，僅供初步參考。</li>
+      <li>缺口標籤判斷原則：話題熱度高（評分≥65）且內部註冊百分位偏低（≤40%）→「高風險技能缺口」；話題熱度高且內部註冊百分位也高（＞60%）→「已充分覆蓋」；其餘 →「一般」。</li>
+    </ul>
+
+  </div>
+</details>
+
+<footer>資料僅於本機瀏覽器中處理，重新整理頁面即會清除。匯出的 Excel 檔案為當下計算結果的靜態快照。</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  const REQUIRED_COLS = ['課程分類','子分類','課程名稱','講師名稱','上架時間','課程時長','課程評價','註冊人次','觀看人次','累計觀看小時'];
+  const PAGE_SIZE = 50;
+
+  let appMode = null; // 'single' | 'compare'
+
+  // ---- single mode state ----
+  let rawRows = [], categoryList = [], courseList = [], instructorList = [];
+  let sourceFileName = '';
+  let coursePage = 1, instrPage = 1;
+  let courseSort = {key:'rank', dir:1};
+  let instrSort = {key:'rank', dir:1};
+  let courseFilter = '', instrFilter = '';
+
+  // ---- compare mode state ----
+  let comparisonType = 'MoM';
+  let datasetA = null, datasetB = null; // {rawRows, categoryList, courseList, instructorList, fileName}
+  let catCompareList = [], courseCompareList = [], instrCompareList = [];
+  let cCoursePage = 1, cInstrPage = 1;
+  let cCourseSort = {key:'viewsB', dir:-1};
+  let cInstrSort = {key:'viewsB', dir:-1};
+  let cCourseFilter = '', cInstrFilter = '';
+  let benchCoursePage = 1, benchInstrPage = 1;
+
+  // ---------- helpers ----------
+  const toNum = v => {
+    if (v === null || v === undefined) return NaN;
+    const s = String(v).trim();
+    if (s === '') return NaN;
+    const n = parseFloat(s.replace(/,/g,''));
+    return isNaN(n) ? NaN : n;
+  };
+  const fmtInt = n => (n===null || n===undefined || isNaN(n)) ? '—' : Math.round(n).toLocaleString('en-US');
+  const fmtRating = n => (n===null || n===undefined || isNaN(n)) ? '—' : n.toFixed(2);
+  const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function rankPill(rank){
+    let cls = 'rank-n';
+    if (rank === 1) cls = 'rank-1';
+    else if (rank === 2) cls = 'rank-2';
+    else if (rank === 3) cls = 'rank-3';
+    return `<span class="rank-pill ${cls}">${rank}</span>`;
+  }
+
+  function rankOrDash(rank){
+    return (rank===null||rank===undefined) ? '<span class="rank-change rc-flat">—</span>' : rankPill(rank);
+  }
+
+  function rankChangeHtml(rankA, rankB){
+    if (rankA==null && rankB!=null) return '<span class="status-badge status-new">新上榜</span>';
+    if (rankA!=null && rankB==null) return '<span class="status-badge status-out">掉出榜單</span>';
+    if (rankA==null && rankB==null) return '<span class="rank-change rc-flat">—</span>';
+    const diff = rankA - rankB; // positive = improved (moved to a better/lower rank number)
+    if (diff > 0) return `<span class="rank-change rc-up">▲ ${diff}</span>`;
+    if (diff < 0) return `<span class="rank-change rc-down">▼ ${Math.abs(diff)}</span>`;
+    return '<span class="rank-change rc-flat">－</span>';
+  }
+
+  function growthHtml(viewsA, viewsB){
+    const a = viewsA==null ? NaN : viewsA;
+    const b = viewsB==null ? NaN : viewsB;
+    if (isNaN(a) && !isNaN(b)) return '<span class="growth-val growth-up">新上榜</span>';
+    if (!isNaN(a) && isNaN(b)) return '<span class="growth-val growth-down">不再上榜</span>';
+    if (isNaN(a) && isNaN(b)) return '<span class="growth-val growth-flat">—</span>';
+    if (a === 0) return b > 0 ? '<span class="growth-val growth-up">新上榜</span>' : '<span class="growth-val growth-flat">0.0%</span>';
+    const pct = ((b - a) / a) * 100;
+    const cls = pct > 0.05 ? 'growth-up' : (pct < -0.05 ? 'growth-down' : 'growth-flat');
+    const sign = pct > 0 ? '+' : '';
+    return `<span class="growth-val ${cls}">${sign}${pct.toFixed(1)}%</span>`;
+  }
+
+  function statusBadge(status){
+    if (status === 'new') return '<span class="status-badge status-new">新上榜</span>';
+    if (status === 'out') return '<span class="status-badge status-out">掉出榜單</span>';
+    return '<span class="status-badge status-both">既有</span>';
+  }
+
+  // =========================================================
+  // MODE SELECTION
+  // =========================================================
+  const modeSelectWrap = document.getElementById('modeSelectWrap');
+  const uploadWrap = document.getElementById('uploadWrap');
+  const compareUploadWrap = document.getElementById('compareUploadWrap');
+  const dashboard = document.getElementById('dashboard');
+  const compareDashboard = document.getElementById('compareDashboard');
+  const reuploadBtn = document.getElementById('reuploadBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const headerSub = document.getElementById('headerSub');
+
+  function hideAllScreens(){
+    modeSelectWrap.style.display = 'none';
+    uploadWrap.style.display = 'none';
+    compareUploadWrap.style.display = 'none';
+    dashboard.style.display = 'none';
+    compareDashboard.style.display = 'none';
+    reuploadBtn.style.display = 'none';
+    exportBtn.style.display = 'none';
+  }
+
+  function goToModeSelect(){
+    appMode = null;
+    hideAllScreens();
+    modeSelectWrap.style.display = 'flex';
+    headerSub.textContent = '請上傳 Datastudio 內的熱門訂閱課程觀看 & 評價資料';
+  }
+
+  document.getElementById('modeSingleCard').addEventListener('click', ()=>{
+    appMode = 'single';
+    hideAllScreens();
+    uploadWrap.style.display = 'flex';
+  });
+  document.getElementById('modeCompareCard').addEventListener('click', ()=>{
+    appMode = 'compare';
+    hideAllScreens();
+    compareUploadWrap.style.display = 'block';
+  });
+  document.getElementById('backFromSingle').addEventListener('click', goToModeSelect);
+  document.getElementById('backFromCompare').addEventListener('click', goToModeSelect);
+
+  reuploadBtn.addEventListener('click', ()=>{
+    rawRows=[]; categoryList=[]; courseList=[]; instructorList=[];
+    datasetA=null; datasetB=null;
+    gapResultsSingle = null; gapResultsCompare = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('fileInputA').value = '';
+    document.getElementById('fileInputB').value = '';
+    resetPeriodDropzone('A');
+    resetPeriodDropzone('B');
+    updateCompareGoBtn();
+    goToModeSelect();
+  });
+
+  // ---------- industry tag chips (single upload screen) ----------
+  const industryInput = document.getElementById('industryTag');
+  document.getElementById('chipRow').addEventListener('click', e=>{
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    const tag = chip.dataset.tag;
+    const current = industryInput.value.trim();
+    const parts = current ? current.split(/、|,|，/).map(s=>s.trim()).filter(Boolean) : [];
+    if (parts.includes(tag)){
+      industryInput.value = parts.filter(p=>p!==tag).join('、');
+      chip.classList.remove('active');
+    } else {
+      parts.push(tag);
+      industryInput.value = parts.join('、');
+      chip.classList.add('active');
+    }
+  });
+
+  // =========================================================
+  // SINGLE MODE: file handling
+  // =========================================================
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  dropzone.addEventListener('click', ()=>fileInput.click());
+  dropzone.addEventListener('dragover', e=>{e.preventDefault(); dropzone.classList.add('drag');});
+  dropzone.addEventListener('dragleave', ()=>dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e=>{
+    e.preventDefault(); dropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e=>{
+    if (e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  function showError(msg){
+    const el = document.getElementById('errorBanner');
+    el.style.display = 'block';
+    el.textContent = msg;
+  }
+  function clearError(){
+    document.getElementById('errorBanner').style.display = 'none';
+  }
+
+  function handleFile(file){
+    clearError();
+    if (!file.name.toLowerCase().endsWith('.csv')){
+      showError('請上傳 .csv 格式的檔案。');
+      return;
+    }
+    sourceFileName = file.name;
+    readCsvFile(file, rows => {
+      if (rows === null) return; // error already shown
+      const ds = computeDataset(rows);
+      rawRows = ds.rawRows; categoryList = ds.categoryList;
+      courseList = ds.courseList; instructorList = ds.instructorList;
+      renderAll();
+      showDashboard();
+    }, showError);
+  }
+
+  // generic CSV -> validated rows reader, shared by single & compare flows
+  function readCsvFile(file, onSuccess, onError){
+    const reader = new FileReader();
+    reader.onload = evt => {
+      Papa.parse(evt.target.result, {
+        header:true,
+        skipEmptyLines:true,
+        complete: res => {
+          const fields = (res.meta.fields || []).map(f=>f.trim());
+          const missing = REQUIRED_COLS.filter(c => !fields.includes(c));
+          if (missing.length){
+            onError('上傳的檔案缺少必要欄位：' + missing.join('、') + '。請確認欄位名稱與範本一致後再重新上傳。');
+            onSuccess(null);
+            return;
+          }
+          const rows = res.data.map(r=>{
+            const o = {};
+            REQUIRED_COLS.forEach(c => o[c] = r[c] !== undefined ? String(r[c]).trim() : '');
+            return o;
+          }).filter(r => r['課程名稱']);
+          if (!rows.length){
+            onError('沒有讀到任何有效的課程資料列，請確認檔案內容。');
+            onSuccess(null);
+            return;
+          }
+          onSuccess(rows);
+        },
+        error: err => { onError('CSV 解析失敗：' + err.message); onSuccess(null); }
+      });
+    };
+    reader.onerror = () => { onError('讀取檔案時發生錯誤，請重試一次。'); onSuccess(null); };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  // ---------- build dataset & rankings (pure function, used by both modes) ----------
+  function computeDataset(rows){
+    const out = {};
+    out.rawRows = rows.map(r => ({
+      category: r['課程分類'],
+      subCategory: r['子分類'],
+      courseName: r['課程名稱'],
+      instructor: r['講師名稱'],
+      publishDate: r['上架時間'],
+      duration: r['課程時長'],
+      rating: toNum(r['課程評價']),
+      reg: toNum(r['註冊人次']),
+      views: toNum(r['觀看人次']),
+      hours: toNum(r['累計觀看小時']),
+    }));
+
+    const catMap = new Map();
+    out.rawRows.forEach(r=>{
+      if(!catMap.has(r.category)) catMap.set(r.category, {category:r.category, count:0, views:0, reg:0, ratingSum:0, ratingCount:0});
+      const c = catMap.get(r.category);
+      c.count++; c.views += (r.views||0); c.reg += (r.reg||0);
+      if(!isNaN(r.rating)){ c.ratingSum += r.rating; c.ratingCount++; }
+    });
+    out.categoryList = Array.from(catMap.values()).map(c=>({
+      category:c.category, count:c.count, views:c.views, reg:c.reg,
+      rating: c.ratingCount ? c.ratingSum/c.ratingCount : NaN,
+      avgViews: c.count ? c.views/c.count : 0
+    }));
+    out.categoryList.sort((a,b)=>b.reg-a.reg);
+    out.categoryList.forEach(c=>{ c.rank = 1 + out.categoryList.filter(o=>o.reg>c.reg).length; });
+
+    // find each category's most popular sub-category (by registration count)
+    const subCatByCat = new Map(); // category -> Map(subCategory -> regSum)
+    out.rawRows.forEach(r=>{
+      if(!subCatByCat.has(r.category)) subCatByCat.set(r.category, new Map());
+      const m = subCatByCat.get(r.category);
+      m.set(r.subCategory, (m.get(r.subCategory)||0) + (r.reg||0));
+    });
+    out.categoryList.forEach(c=>{
+      const m = subCatByCat.get(c.category);
+      let best = null, bestReg = -1;
+      if (m) m.forEach((reg, subCat)=>{ if (reg>bestReg){ bestReg=reg; best=subCat; } });
+      c.topSubCategory = best || '—';
+    });
+
+    const instrMap = new Map();
+    out.rawRows.forEach(r=>{
+      if(!instrMap.has(r.instructor)) instrMap.set(r.instructor, {instructor:r.instructor, count:0, views:0, reg:0, ratingSum:0, ratingCount:0});
+      const c = instrMap.get(r.instructor);
+      c.count++; c.views += (r.views||0); c.reg += (r.reg||0);
+      if(!isNaN(r.rating)){ c.ratingSum += r.rating; c.ratingCount++; }
+    });
+    out.instructorList = Array.from(instrMap.values()).map(c=>({
+      instructor:c.instructor, count:c.count, views:c.views, reg:c.reg,
+      rating: c.ratingCount ? c.ratingSum/c.ratingCount : NaN,
+      avgViews: c.count ? c.views/c.count : 0
+    }));
+    out.instructorList.sort((a,b)=>b.reg-a.reg);
+    out.instructorList.forEach(c=>{ c.rank = 1 + out.instructorList.filter(o=>o.reg>c.reg).length; });
+
+    out.courseList = out.rawRows.map(r=>({...r}));
+    out.courseList.forEach(c=>{ c.rank = 1 + out.courseList.filter(o=>o.reg>c.reg).length; });
+    const byCat = new Map();
+    out.courseList.forEach(c=>{
+      if(!byCat.has(c.category)) byCat.set(c.category, []);
+      byCat.get(c.category).push(c);
+    });
+    byCat.forEach(list=>{
+      list.forEach(c=>{ c.catRank = 1 + list.filter(o=>o.reg>c.reg).length; });
+    });
+    out.courseList.sort((a,b)=>a.rank-b.rank);
+
+    return out;
+  }
+
+  // =========================================================
+  // SINGLE MODE: render
+  // =========================================================
+  function renderStats(){
+    const totalCourses = rawRows.length;
+    const totalViews = rawRows.reduce((s,r)=>s+(r.views||0),0);
+    const totalReg = rawRows.reduce((s,r)=>s+(r.reg||0),0);
+    const instrCount = instructorList.length;
+    const ratings = rawRows.map(r=>r.rating).filter(v=>!isNaN(v));
+    const avgRating = ratings.length ? ratings.reduce((a,b)=>a+b,0)/ratings.length : NaN;
+    const topCourse = courseList.find(c=>c.rank===1);
+    const topInstructor = instructorList.find(c=>c.rank===1);
+
+    const coreCards = [
+      {label:'課程總數', value:fmtInt(totalCourses), cls:'navy'},
+      {label:'總觀看人次', value:fmtInt(totalViews), cls:'teal'},
+      {label:'總註冊人次', value:fmtInt(totalReg), cls:'navy'},
+      {label:'講師人數', value:fmtInt(instrCount), cls:'navy'},
+      {label:'平均課程評價', value:fmtRating(avgRating), cls:'teal'},
+    ];
+    const highlightCards = [
+      {label:'最熱門課程名稱', value: topCourse ? topCourse.courseName : '—', cls:'navy', text:true},
+      {label:'最熱門講師', value: topInstructor ? topInstructor.instructor : '—', cls:'teal', text:true},
+    ];
+    const renderCard = c => `
+      <div class="stat-card">
+        <div class="label">${c.label}</div>
+        <div class="value ${c.cls} ${c.text ? 'text' : 'disp'}">${escapeHtml(String(c.value))}</div>
+      </div>`;
+    document.getElementById('statsGrid').innerHTML = coreCards.map(renderCard).join('');
+    document.getElementById('statsGridHighlight').innerHTML = highlightCards.map(renderCard).join('');
+  }
+
+  function renderCategoryTable(){
+    const tbody = document.getElementById('catTbody');
+    if (!categoryList.length){
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state">尚無資料</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = categoryList.map(c=>`
+      <tr>
+        <td class="center">${rankPill(c.rank)}</td>
+        <td class="name-strong">${escapeHtml(c.category)}</td>
+        <td class="num">${fmtInt(c.count)}</td>
+        <td class="num">${fmtInt(c.views)}</td>
+        <td class="num">${fmtInt(c.reg)}</td>
+        <td class="num">${fmtRating(c.rating)}</td>
+        <td class="num">${fmtInt(c.avgViews)}</td>
+        <td><span class="cat-badge">${escapeHtml(c.topSubCategory)}</span></td>
+      </tr>`).join('');
+  }
+
+  function sortList(list, sort){
+    const {key,dir} = sort;
+    const arr = list.slice();
+    arr.sort((a,b)=>{
+      let va = a[key], vb = b[key];
+      if (typeof va === 'string'){
+        return dir * va.localeCompare(vb, 'zh-Hant');
+      }
+      va = (va===null||va===undefined||isNaN(va)) ? -Infinity : va;
+      vb = (vb===null||vb===undefined||isNaN(vb)) ? -Infinity : vb;
+      return dir * (va - vb);
+    });
+    return arr;
+  }
+
+  function getFilteredCourses(){
+    const q = courseFilter.trim().toLowerCase();
+    if (!q) return courseList;
+    return courseList.filter(c =>
+      c.courseName.toLowerCase().includes(q) ||
+      c.instructor.toLowerCase().includes(q) ||
+      c.category.toLowerCase().includes(q) ||
+      (c.subCategory||'').toLowerCase().includes(q)
+    );
+  }
+
+  function renderCourseTable(){
+    let list = getFilteredCourses();
+    list = sortList(list, courseSort);
+    document.getElementById('courseCount').textContent = `共 ${list.length.toLocaleString('en-US')} 筆課程`;
+
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (coursePage > totalPages) coursePage = totalPages;
+    const start = (coursePage-1)*PAGE_SIZE;
+    const pageItems = list.slice(start, start+PAGE_SIZE);
+
+    const tbody = document.getElementById('courseTbody');
+    if (!pageItems.length){
+      tbody.innerHTML = `<tr><td colspan="11" class="empty-state">找不到符合的課程</td></tr>`;
+    } else {
+      tbody.innerHTML = pageItems.map(c=>`
+        <tr>
+          <td class="center">${rankPill(c.rank)}</td>
+          <td class="center">${rankPill(c.catRank)}</td>
+          <td><span class="cat-badge">${escapeHtml(c.category)}</span></td>
+          <td>${escapeHtml(c.subCategory)}</td>
+          <td class="name-strong">${escapeHtml(c.courseName)}</td>
+          <td>${escapeHtml(c.instructor)}</td>
+          <td class="center">${escapeHtml(c.duration || '—')}</td>
+          <td class="num">${fmtInt(c.views)}</td>
+          <td class="num">${fmtInt(c.reg)}</td>
+          <td class="num">${fmtRating(c.rating)}</td>
+          <td class="num nowrap-cell">${fmtInt(c.hours)}</td>
+        </tr>`).join('');
+    }
+    renderPager('coursePager', coursePage, totalPages, p=>{coursePage=p; renderCourseTable();});
+    updateSortHeaders('courseTable', courseSort);
+  }
+
+  function getFilteredInstructors(){
+    const q = instrFilter.trim().toLowerCase();
+    if (!q) return instructorList;
+    return instructorList.filter(c => c.instructor.toLowerCase().includes(q));
+  }
+
+  function renderInstrTable(){
+    let list = getFilteredInstructors();
+    list = sortList(list, instrSort);
+    document.getElementById('instrCount').textContent = `共 ${list.length.toLocaleString('en-US')} 位講師`;
+
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (instrPage > totalPages) instrPage = totalPages;
+    const start = (instrPage-1)*PAGE_SIZE;
+    const pageItems = list.slice(start, start+PAGE_SIZE);
+
+    const tbody = document.getElementById('instrTbody');
+    if (!pageItems.length){
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">找不到符合的講師</td></tr>`;
+    } else {
+      tbody.innerHTML = pageItems.map(c=>`
+        <tr>
+          <td class="center">${rankPill(c.rank)}</td>
+          <td class="name-strong">${escapeHtml(c.instructor)}</td>
+          <td class="num">${fmtInt(c.count)}</td>
+          <td class="num">${fmtInt(c.views)}</td>
+          <td class="num">${fmtInt(c.reg)}</td>
+          <td class="num">${fmtRating(c.rating)}</td>
+          <td class="num">${fmtInt(c.avgViews)}</td>
+        </tr>`).join('');
+    }
+    renderPager('instrPager', instrPage, totalPages, p=>{instrPage=p; renderInstrTable();});
+    updateSortHeaders('instrTable', instrSort);
+  }
+
+  function renderPager(elId, page, totalPages, onGo){
+    const el = document.getElementById(elId);
+    el.innerHTML = '';
+    const info = document.createElement('div');
+    info.className = 'pg-info';
+    info.textContent = `第 ${page} / ${totalPages} 頁`;
+    const btns = document.createElement('div');
+    btns.className = 'pg-btns';
+    const mkBtn = (label, disabled, fn) => {
+      const b = document.createElement('button');
+      b.className = 'pg-btn'; b.textContent = label; b.disabled = disabled;
+      b.addEventListener('click', fn);
+      return b;
+    };
+    btns.appendChild(mkBtn('« 上一頁', page<=1, ()=>onGo(page-1)));
+    btns.appendChild(mkBtn('下一頁 »', page>=totalPages, ()=>onGo(page+1)));
+    el.appendChild(info);
+    el.appendChild(btns);
+  }
+
+  function updateSortHeaders(tableId, sort){
+    const table = document.getElementById(tableId);
+    table.querySelectorAll('thead th').forEach(th=>{
+      th.classList.remove('active-sort');
+      th.querySelectorAll('.sort-arrow').forEach(a=>a.remove());
+      if (th.dataset.key === sort.key){
+        th.classList.add('active-sort');
+        const arrow = document.createElement('span');
+        arrow.className = 'sort-arrow';
+        arrow.textContent = sort.dir === 1 ? '▲' : '▼';
+        th.appendChild(arrow);
+      }
+    });
+  }
+
+  document.getElementById('courseTable').querySelector('thead').addEventListener('click', e=>{
+    const th = e.target.closest('th');
+    if (!th) return;
+    const key = th.dataset.key;
+    if (courseSort.key === key) courseSort.dir *= -1;
+    else courseSort = {key, dir: key==='rank'||key==='catRank' ? 1 : -1};
+    coursePage = 1;
+    renderCourseTable();
+  });
+  document.getElementById('instrTable').querySelector('thead').addEventListener('click', e=>{
+    const th = e.target.closest('th');
+    if (!th) return;
+    const key = th.dataset.key;
+    if (instrSort.key === key) instrSort.dir *= -1;
+    else instrSort = {key, dir: key==='rank' ? 1 : -1};
+    instrPage = 1;
+    renderInstrTable();
+  });
+
+  document.getElementById('courseSearch').addEventListener('input', e=>{
+    courseFilter = e.target.value; coursePage = 1; renderCourseTable();
+  });
+  document.getElementById('instrSearch').addEventListener('input', e=>{
+    instrFilter = e.target.value; instrPage = 1; renderInstrTable();
+  });
+
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const group = btn.closest('#dashboard');
+      group.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      group.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  function renderAll(){
+    renderStats();
+    renderCategoryTable();
+    coursePage = 1; instrPage = 1;
+    renderCourseTable();
+    renderInstrTable();
+  }
+
+  function showDashboard(){
+    hideAllScreens();
+    dashboard.style.display = 'block';
+    exportBtn.style.display = 'inline-flex';
+    reuploadBtn.style.display = 'inline-flex';
+    const tag = industryInput.value.trim() || '未標記';
+    document.getElementById('ctxIndustry').textContent = tag;
+    document.getElementById('ctxFile').textContent = sourceFileName || '—';
+    document.getElementById('ctxTimestamp').textContent = '分析時間：' + new Date().toLocaleString('zh-Hant-TW');
+    headerSub.textContent = `已載入 ${rawRows.length.toLocaleString('en-US')} 筆課程資料`;
+    gapResultsSingle = null;
+    resetGapPanel('single');
+    refreshGapPrompt('single');
+  }
+
+  // =========================================================
+  // COMPARE MODE: type chips + period label defaults
+  // =========================================================
+  const periodALabel = document.getElementById('periodALabel');
+  const periodBLabel = document.getElementById('periodBLabel');
+  const periodAMonth = document.getElementById('periodAMonth');
+  const periodBMonth = document.getElementById('periodBMonth');
+
+  const TYPE_CONFIG = {
+    MoM: {
+      eyebrowA:'期間 A（基準期）', eyebrowB:'期間 B（比較期）',
+      labelFieldText:'區間標籤',
+      placeholderA:'例如：2026 年 6 月', placeholderB:'例如：2026 年 7 月',
+      dzSubA:'期間 A 的課程觀看資料', dzSubB:'期間 B 的課程觀看資料',
+      showMonth:true, defaultA:'上月', defaultB:'本月',
+    },
+    YoY: {
+      eyebrowA:'期間 A（基準期）', eyebrowB:'期間 B（比較期）',
+      labelFieldText:'區間標籤',
+      placeholderA:'例如：2025 年 7 月', placeholderB:'例如：2026 年 7 月',
+      dzSubA:'期間 A 的課程觀看資料', dzSubB:'期間 B 的課程觀看資料',
+      showMonth:true, defaultA:'去年同期', defaultB:'今年同期',
+    },
+    benchmark: {
+      eyebrowA:'企業／單位 A（分析對象）', eyebrowB:'產業對標範圍 B（比較基準）',
+      labelFieldText:'名稱標籤',
+      placeholderA:'例如：您的企業名稱', placeholderB:'例如：半導體業整體 / 產業平均',
+      dzSubA:'企業 A 的課程觀看資料', dzSubB:'產業對標範圍 B 的課程觀看資料',
+      showMonth:false, defaultA:'本企業', defaultB:'產業平均',
+    },
+    custom: {
+      eyebrowA:'資料 A', eyebrowB:'資料 B',
+      labelFieldText:'標籤',
+      placeholderA:'例如：任意期間或範圍名稱', placeholderB:'例如：任意期間或範圍名稱',
+      dzSubA:'資料 A 的課程觀看資料', dzSubB:'資料 B 的課程觀看資料',
+      showMonth:true, defaultA:'期間 A', defaultB:'期間 B',
+    },
+  };
+
+  function typeDisplayName(type){
+    const names = {MoM:'MoM', YoY:'YoY', benchmark:'企業 vs 產業', custom:'自訂比較'};
+    return names[type] || type;
+  }
+
+  function applyTypeDefaults(type){
+    const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.custom;
+    document.getElementById('periodAEyebrow').textContent = cfg.eyebrowA;
+    document.getElementById('periodBEyebrow').textContent = cfg.eyebrowB;
+    document.getElementById('periodALabelText').textContent = cfg.labelFieldText;
+    document.getElementById('periodBLabelText').textContent = cfg.labelFieldText;
+    periodALabel.placeholder = cfg.placeholderA;
+    periodBLabel.placeholder = cfg.placeholderB;
+    document.getElementById('dropzoneASub').textContent = cfg.dzSubA;
+    document.getElementById('dropzoneBSub').textContent = cfg.dzSubB;
+    document.getElementById('periodAMonthWrap').style.display = cfg.showMonth ? 'block' : 'none';
+    document.getElementById('periodBMonthWrap').style.display = cfg.showMonth ? 'block' : 'none';
+    if (!periodALabel.value) periodALabel.value = cfg.defaultA;
+    if (!periodBLabel.value) periodBLabel.value = cfg.defaultB;
+  }
+
+  document.getElementById('compareTypeChips').addEventListener('click', e=>{
+    const chip = e.target.closest('.type-chip');
+    if (!chip) return;
+    document.querySelectorAll('#compareTypeChips .type-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    comparisonType = chip.dataset.type;
+    applyTypeDefaults(comparisonType);
+  });
+
+  periodAMonth.addEventListener('change', ()=>{
+    if (periodAMonth.value) periodALabel.value = monthInputToLabel(periodAMonth.value);
+  });
+  periodBMonth.addEventListener('change', ()=>{
+    if (periodBMonth.value) periodBLabel.value = monthInputToLabel(periodBMonth.value);
+  });
+  function monthInputToLabel(v){
+    const [y,m] = v.split('-');
+    return `${y} 年 ${parseInt(m,10)} 月`;
+  }
+
+  applyTypeDefaults('MoM');
+
+  // =========================================================
+  // COMPARE MODE: dual file upload
+  // =========================================================
+  function setupPeriodDropzone(letter){
+    const dz = document.getElementById('dropzone'+letter);
+    const input = document.getElementById('fileInput'+letter);
+    dz.addEventListener('click', ()=>input.click());
+    dz.addEventListener('dragover', e=>{e.preventDefault(); dz.classList.add('drag');});
+    dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+    dz.addEventListener('drop', e=>{
+      e.preventDefault(); dz.classList.remove('drag');
+      if (e.dataTransfer.files.length) handlePeriodFile(letter, e.dataTransfer.files[0]);
+    });
+    input.addEventListener('change', e=>{
+      if (e.target.files.length) handlePeriodFile(letter, e.target.files[0]);
+    });
+  }
+  setupPeriodDropzone('A');
+  setupPeriodDropzone('B');
+
+  function showCompareError(msg){
+    const el = document.getElementById('compareErrorBanner');
+    el.style.display = 'block';
+    el.textContent = msg;
+  }
+  function clearCompareError(){
+    document.getElementById('compareErrorBanner').style.display = 'none';
+  }
+
+  function resetPeriodDropzone(letter){
+    const dz = document.getElementById('dropzone'+letter);
+    dz.classList.remove('loaded');
+    dz.querySelector('.dz-title').textContent = '拖曳 CSV 或點擊選擇檔案';
+    dz.querySelector('.dz-sub').textContent = letter==='A' ? '期間 A 的課程觀看資料' : '期間 B 的課程觀看資料';
+    document.getElementById('status'+letter).style.display = 'none';
+    if (letter==='A') datasetA = null; else datasetB = null;
+  }
+
+  function handlePeriodFile(letter, file){
+    clearCompareError();
+    if (!file.name.toLowerCase().endsWith('.csv')){
+      showCompareError('請上傳 .csv 格式的檔案。');
+      return;
+    }
+    readCsvFile(file, rows => {
+      if (rows === null) return;
+      const ds = computeDataset(rows);
+      ds.fileName = file.name;
+      if (letter==='A') datasetA = ds; else datasetB = ds;
+
+      const dz = document.getElementById('dropzone'+letter);
+      dz.classList.add('loaded');
+      dz.querySelector('.dz-title').textContent = '已載入：' + file.name;
+      dz.querySelector('.dz-sub').textContent = '點擊可更換檔案';
+      const statusEl = document.getElementById('status'+letter);
+      statusEl.style.display = 'flex';
+      statusEl.innerHTML = `✓ 共 ${rows.length.toLocaleString('en-US')} 筆課程`;
+
+      updateCompareGoBtn();
+    }, showCompareError);
+  }
+
+  function updateCompareGoBtn(){
+    document.getElementById('compareGoBtn').disabled = !(datasetA && datasetB);
+  }
+
+  document.getElementById('compareGoBtn').addEventListener('click', ()=>{
+    if (!datasetA || !datasetB) return;
+    buildComparison();
+    renderCompareAll();
+    showCompareDashboard();
+  });
+
+  // =========================================================
+  // COMPARE MODE: build comparison lists
+  // =========================================================
+  function buildComparison(){
+    // ---- category comparison ----
+    const catKeys = new Set([...datasetA.categoryList.map(c=>c.category), ...datasetB.categoryList.map(c=>c.category)]);
+    const catAMap = new Map(datasetA.categoryList.map(c=>[c.category,c]));
+    const catBMap = new Map(datasetB.categoryList.map(c=>[c.category,c]));
+    catCompareList = Array.from(catKeys).map(key=>{
+      const a = catAMap.get(key), b = catBMap.get(key);
+      return {
+        category:key,
+        viewsA: a ? a.reg : null, rankA: a ? a.rank : null,
+        viewsB: b ? b.reg : null, rankB: b ? b.rank : null,
+        topSubA: a ? a.topSubCategory : null, topSubB: b ? b.topSubCategory : null,
+        status: a && b ? 'both' : (b ? 'new' : 'out'),
+      };
+    });
+    catCompareList.forEach(c=>{ c.growth = growthPct(c.viewsA, c.viewsB); c.rankChange = rankChangeVal(c.rankA, c.rankB); });
+
+    // ---- instructor comparison ----
+    const instrKeys = new Set([...datasetA.instructorList.map(c=>c.instructor), ...datasetB.instructorList.map(c=>c.instructor)]);
+    const instrAMap = new Map(datasetA.instructorList.map(c=>[c.instructor,c]));
+    const instrBMap = new Map(datasetB.instructorList.map(c=>[c.instructor,c]));
+    instrCompareList = Array.from(instrKeys).map(key=>{
+      const a = instrAMap.get(key), b = instrBMap.get(key);
+      return {
+        instructor:key,
+        viewsA: a ? a.reg : null, rankA: a ? a.rank : null,
+        viewsB: b ? b.reg : null, rankB: b ? b.rank : null,
+        status: a && b ? 'both' : (b ? 'new' : 'out'),
+      };
+    });
+    instrCompareList.forEach(c=>{ c.growth = growthPct(c.viewsA, c.viewsB); c.rankChange = rankChangeVal(c.rankA, c.rankB); });
+
+    // ---- course comparison (key = courseName + instructor) ----
+    const courseKey = c => c.courseName + '||' + c.instructor;
+    const courseAMap = new Map(datasetA.courseList.map(c=>[courseKey(c),c]));
+    const courseBMap = new Map(datasetB.courseList.map(c=>[courseKey(c),c]));
+    const allCourseKeys = new Set([...courseAMap.keys(), ...courseBMap.keys()]);
+    courseCompareList = Array.from(allCourseKeys).map(key=>{
+      const a = courseAMap.get(key), b = courseBMap.get(key);
+      const ref = b || a;
+      return {
+        courseName: ref.courseName, instructor: ref.instructor,
+        category: b ? b.category : a.category,
+        publishDate: ref.publishDate, duration: ref.duration, hours: ref.hours,
+        viewsA: a ? a.reg : null, rankA: a ? a.rank : null,
+        viewsB: b ? b.reg : null, rankB: b ? b.rank : null,
+        status: a && b ? 'both' : (b ? 'new' : 'out'),
+      };
+    });
+    courseCompareList.forEach(c=>{ c.growth = growthPct(c.viewsA, c.viewsB); c.rankChange = rankChangeVal(c.rankA, c.rankB); });
+  }
+
+  function growthPct(a,b){
+    if (a==null && b!=null) return Infinity;
+    if (a!=null && b==null) return -Infinity;
+    if (a==null && b==null) return NaN;
+    if (a === 0) return b>0 ? Infinity : 0;
+    return ((b-a)/a)*100;
+  }
+  function rankChangeVal(rankA, rankB){
+    if (rankA==null || rankB==null) return null;
+    return rankA - rankB;
+  }
+
+  // =========================================================
+  // COMPARE MODE: render
+  // =========================================================
+  function findBestByRank(list, statusFilter){
+    return list.filter(x=>x.status===statusFilter && x.rankB!=null)
+               .sort((a,b)=>a.rankB-b.rankB)[0] || null;
+  }
+  function findMostImproved(list){
+    let best = null;
+    list.forEach(x=>{
+      if (x.status==='both' && x.rankChange!=null && x.rankChange>0){
+        if (!best || x.rankChange>best.rankChange) best = x;
+      }
+    });
+    return best;
+  }
+
+  function renderCompareStats(){
+    const sum = (list,key) => list.reduce((s,r)=>s+(r[key]||0),0);
+    const avgRating = list => {
+      const r = list.map(x=>x.rating).filter(v=>!isNaN(v));
+      return r.length ? r.reduce((a,b)=>a+b,0)/r.length : NaN;
+    };
+    const metrics = [
+      {label:'課程總數', a:datasetA.rawRows.length, b:datasetB.rawRows.length, fmt:fmtInt},
+      {label:'總觀看人次', a:sum(datasetA.rawRows,'views'), b:sum(datasetB.rawRows,'views'), fmt:fmtInt},
+      {label:'總註冊人次', a:sum(datasetA.rawRows,'reg'), b:sum(datasetB.rawRows,'reg'), fmt:fmtInt},
+      {label:'講師人數', a:datasetA.instructorList.length, b:datasetB.instructorList.length, fmt:fmtInt},
+      {label:'平均課程評價', a:avgRating(datasetA.rawRows), b:avgRating(datasetB.rawRows), fmt:fmtRating},
+    ];
+    const labelA = periodALabel.value.trim() || '期間 A';
+    const labelB = periodBLabel.value.trim() || '期間 B';
+
+    const metricCardsHtml = metrics.map(m=>{
+      const pct = growthPct(m.a, m.b);
+      let deltaHtml;
+      if (!isFinite(pct) || isNaN(pct)) {
+        deltaHtml = `<span class="delta-pill delta-flat">—</span>`;
+      } else {
+        const cls = pct>0.05?'delta-up':(pct<-0.05?'delta-down':'delta-flat');
+        const sign = pct>0?'+':'';
+        deltaHtml = `<span class="delta-pill ${cls}">${pct>=0?'▲':'▼'} ${sign}${pct.toFixed(1)}%</span>`;
+      }
+      return `
+      <div class="cstat-card">
+        <div class="label">${m.label}</div>
+        <div class="cstat-rows">
+          <span class="a-row">${escapeHtml(labelA)}：${m.fmt(m.a)}</span>
+          <span class="b-row disp">${m.fmt(m.b)}</span>
+        </div>
+        ${deltaHtml}
+      </div>`;
+    }).join('');
+
+    let highlightCardsHtml;
+    if (comparisonType === 'benchmark'){
+      // ---- benchmark mode: show A's #1 and B's #1 together in one card ----
+      const topCourseA = datasetA.courseList.find(c=>c.rank===1);
+      const topCourseB = datasetB.courseList.find(c=>c.rank===1);
+      const topInstrA = datasetA.instructorList.find(c=>c.rank===1);
+      const topInstrB = datasetB.instructorList.find(c=>c.rank===1);
+
+      const pairCard = (label, itemA, itemB, field) => `
+        <div class="stat-card">
+          <div class="label">${label}</div>
+          <div class="cstat-rows" style="margin-top:8px;">
+            <span class="a-row">${escapeHtml(labelA)}：${escapeHtml(itemA ? itemA[field] : '—')}</span>
+            <span class="a-row" style="margin-top:2px;">${escapeHtml(labelB)}：${escapeHtml(itemB ? itemB[field] : '—')}</span>
+          </div>
+        </div>`;
+
+      highlightCardsHtml =
+        pairCard('最熱門課程名稱', topCourseA, topCourseB, 'courseName') +
+        pairCard('最熱門講師', topInstrA, topInstrB, 'instructor');
+    } else {
+      // ---- time-based comparison: top / new-entry / most-improved ----
+      const topCourse = datasetB.courseList.find(c=>c.rank===1);
+      const newCourse = findBestByRank(courseCompareList, 'new');
+      const improvedCourse = findMostImproved(courseCompareList);
+
+      const topInstr = datasetB.instructorList.find(c=>c.rank===1);
+      const newInstr = findBestByRank(instrCompareList, 'new');
+      const improvedInstr = findMostImproved(instrCompareList);
+
+      const highlightCards = [
+        {label:'最熱門課程名稱', value: topCourse ? topCourse.courseName : '—'},
+        {label:'新上榜課程名稱', value: newCourse ? newCourse.courseName : '（無新上榜課程）'},
+        {label:'進步最多的課程', value: improvedCourse ? `${improvedCourse.courseName}（進步 ${improvedCourse.rankChange} 名）` : '（無明顯進步課程）'},
+        {label:'最熱門講師', value: topInstr ? topInstr.instructor : '—'},
+        {label:'新上榜講師', value: newInstr ? newInstr.instructor : '（無新上榜講師）'},
+        {label:'進步最多的講師', value: improvedInstr ? `${improvedInstr.instructor}（進步 ${improvedInstr.rankChange} 名）` : '（無明顯進步講師）'},
+      ];
+      highlightCardsHtml = highlightCards.map(c=>`
+        <div class="stat-card">
+          <div class="label">${c.label}</div>
+          <div class="value navy text">${escapeHtml(c.value)}</div>
+        </div>`).join('');
+    }
+
+    document.getElementById('cStatsGrid').innerHTML = metricCardsHtml;
+    document.getElementById('cStatsGridHighlight').innerHTML = highlightCardsHtml;
+  }
+
+  function cSortList(list, sort){
+    const {key,dir} = sort;
+    const arr = list.slice();
+    const rank = v => (v===null||v===undefined) ? Infinity : v; // nulls sink to bottom regardless of dir intent for numeric rank cols
+    arr.sort((a,b)=>{
+      let va = a[key], vb = b[key];
+      if (typeof va === 'string' || typeof vb === 'string'){
+        va = va==null ? '' : va; vb = vb==null ? '' : vb;
+        return dir * String(va).localeCompare(String(vb), 'zh-Hant');
+      }
+      if (key==='rankA' || key==='rankB'){
+        return dir * (rank(va) - rank(vb));
+      }
+      va = (va===null||va===undefined||isNaN(va)) ? -Infinity : va;
+      vb = (vb===null||vb===undefined||isNaN(vb)) ? -Infinity : vb;
+      return dir * (va - vb);
+    });
+    return arr;
+  }
+
+  function renderCategoryCompareTable(){
+    let list = cSortList(catCompareList, {key:'viewsB', dir:-1});
+    const tbody = document.getElementById('cCatTbody');
+    if (!list.length){
+      tbody.innerHTML = `<tr><td colspan="9" class="empty-state">尚無資料</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = list.map(c=>`
+      <tr>
+        <td class="name-strong">${escapeHtml(c.category)} ${c.status!=='both' ? statusBadge(c.status) : ''}</td>
+        <td class="num">${fmtInt(c.viewsA)}</td>
+        <td class="center">${rankOrDash(c.rankA)}</td>
+        <td class="num">${fmtInt(c.viewsB)}</td>
+        <td class="center">${rankOrDash(c.rankB)}</td>
+        <td class="center">${rankChangeHtml(c.rankA, c.rankB)}</td>
+        <td class="num">${growthHtml(c.viewsA, c.viewsB)}</td>
+        <td><span class="cat-badge">${escapeHtml(c.topSubA || '—')}</span></td>
+        <td><span class="cat-badge">${escapeHtml(c.topSubB || '—')}</span></td>
+      </tr>`).join('');
+  }
+
+  function getFilteredCourseCompare(){
+    const q = cCourseFilter.trim().toLowerCase();
+    if (!q) return courseCompareList;
+    return courseCompareList.filter(c =>
+      c.courseName.toLowerCase().includes(q) ||
+      c.instructor.toLowerCase().includes(q) ||
+      c.category.toLowerCase().includes(q)
+    );
+  }
+
+  function renderCourseCompareTable(){
+    let list = getFilteredCourseCompare();
+    list = cSortList(list, cCourseSort);
+    document.getElementById('cCourseCount').textContent = `共 ${list.length.toLocaleString('en-US')} 筆課程`;
+
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (cCoursePage > totalPages) cCoursePage = totalPages;
+    const start = (cCoursePage-1)*PAGE_SIZE;
+    const pageItems = list.slice(start, start+PAGE_SIZE);
+
+    const tbody = document.getElementById('cCourseTbody');
+    if (!pageItems.length){
+      tbody.innerHTML = `<tr><td colspan="12" class="empty-state">找不到符合的課程</td></tr>`;
+    } else {
+      tbody.innerHTML = pageItems.map(c=>`
+        <tr>
+          <td class="center">${statusBadge(c.status)}</td>
+          <td><span class="cat-badge">${escapeHtml(c.category)}</span></td>
+          <td class="name-strong">${escapeHtml(c.courseName)}</td>
+          <td>${escapeHtml(c.instructor)}</td>
+          <td class="center">${escapeHtml(c.duration || '—')}</td>
+          <td class="num">${fmtInt(c.viewsA)}</td>
+          <td class="center">${rankOrDash(c.rankA)}</td>
+          <td class="num">${fmtInt(c.viewsB)}</td>
+          <td class="center">${rankOrDash(c.rankB)}</td>
+          <td class="center">${rankChangeHtml(c.rankA, c.rankB)}</td>
+          <td class="num">${growthHtml(c.viewsA, c.viewsB)}</td>
+          <td class="num nowrap-cell">${fmtInt(c.hours)}</td>
+        </tr>`).join('');
+    }
+    renderPager('cCoursePager', cCoursePage, totalPages, p=>{cCoursePage=p; renderCourseCompareTable();});
+    updateSortHeaders('cCourseTable', cCourseSort);
+  }
+
+  function getFilteredInstrCompare(){
+    const q = cInstrFilter.trim().toLowerCase();
+    if (!q) return instrCompareList;
+    return instrCompareList.filter(c => c.instructor.toLowerCase().includes(q));
+  }
+
+  function renderInstrCompareTable(){
+    let list = getFilteredInstrCompare();
+    list = cSortList(list, cInstrSort);
+    document.getElementById('cInstrCount').textContent = `共 ${list.length.toLocaleString('en-US')} 位講師`;
+
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (cInstrPage > totalPages) cInstrPage = totalPages;
+    const start = (cInstrPage-1)*PAGE_SIZE;
+    const pageItems = list.slice(start, start+PAGE_SIZE);
+
+    const tbody = document.getElementById('cInstrTbody');
+    if (!pageItems.length){
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state">找不到符合的講師</td></tr>`;
+    } else {
+      tbody.innerHTML = pageItems.map(c=>`
+        <tr>
+          <td class="center">${statusBadge(c.status)}</td>
+          <td class="name-strong">${escapeHtml(c.instructor)}</td>
+          <td class="num">${fmtInt(c.viewsA)}</td>
+          <td class="center">${rankOrDash(c.rankA)}</td>
+          <td class="num">${fmtInt(c.viewsB)}</td>
+          <td class="center">${rankOrDash(c.rankB)}</td>
+          <td class="center">${rankChangeHtml(c.rankA, c.rankB)}</td>
+          <td class="num">${growthHtml(c.viewsA, c.viewsB)}</td>
+        </tr>`).join('');
+    }
+    renderPager('cInstrPager', cInstrPage, totalPages, p=>{cInstrPage=p; renderInstrCompareTable();});
+    updateSortHeaders('cInstrTable', cInstrSort);
+  }
+
+  // =========================================================
+  // COMPARE MODE: benchmark (company vs industry) side-by-side rendering
+  // =========================================================
+  function renderCatBenchmarkTable(){
+    const listA = datasetA.categoryList;
+    const listB = datasetB.categoryList;
+    const maxLen = Math.max(listA.length, listB.length);
+    const tbody = document.getElementById('cCatBenchmarkTbody');
+    if (!maxLen){
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state">尚無資料</td></tr>`;
+      return;
+    }
+    let rows = '';
+    for (let i=0;i<maxLen;i++){
+      const a = listA[i], b = listB[i];
+      rows += `<tr>
+        <td class="center td-side-a">${a?rankPill(a.rank):'—'}</td>
+        <td class="name-strong td-side-a">${a?escapeHtml(a.category):'—'}</td>
+        <td class="num td-side-a">${a?fmtInt(a.reg):'—'}</td>
+        <td class="td-side-a">${a?`<span class="cat-badge">${escapeHtml(a.topSubCategory)}</span>`:'—'}</td>
+        <td class="center td-side-b">${b?rankPill(b.rank):'—'}</td>
+        <td class="name-strong td-side-b">${b?escapeHtml(b.category):'—'}</td>
+        <td class="num td-side-b">${b?fmtInt(b.reg):'—'}</td>
+        <td class="td-side-b">${b?`<span class="cat-badge">${escapeHtml(b.topSubCategory)}</span>`:'—'}</td>
+      </tr>`;
+    }
+    tbody.innerHTML = rows;
+  }
+
+  function renderCourseBenchmarkTable(){
+    const listA = datasetA.courseList;
+    const listB = datasetB.courseList;
+    const maxLen = Math.max(listA.length, listB.length);
+    const totalPages = Math.max(1, Math.ceil(maxLen / PAGE_SIZE));
+    if (benchCoursePage > totalPages) benchCoursePage = totalPages;
+    const start = (benchCoursePage-1)*PAGE_SIZE;
+    const end = Math.min(start+PAGE_SIZE, maxLen);
+
+    const tbody = document.getElementById('cCourseBenchmarkTbody');
+    if (!maxLen){
+      tbody.innerHTML = `<tr><td colspan="10" class="empty-state">尚無資料</td></tr>`;
+    } else {
+      let rows = '';
+      for (let i=start;i<end;i++){
+        const a = listA[i], b = listB[i];
+        rows += `<tr>
+          <td class="center td-side-a">${a?rankPill(a.rank):'—'}</td>
+          <td class="td-side-a">${a?`<span class="cat-badge">${escapeHtml(a.category)}</span>`:'—'}</td>
+          <td class="name-strong td-side-a">${a?escapeHtml(a.courseName):'—'}</td>
+          <td class="td-side-a">${a?escapeHtml(a.instructor):'—'}</td>
+          <td class="num td-side-a">${a?fmtInt(a.reg):'—'}</td>
+          <td class="center td-side-b">${b?rankPill(b.rank):'—'}</td>
+          <td class="td-side-b">${b?`<span class="cat-badge">${escapeHtml(b.category)}</span>`:'—'}</td>
+          <td class="name-strong td-side-b">${b?escapeHtml(b.courseName):'—'}</td>
+          <td class="td-side-b">${b?escapeHtml(b.instructor):'—'}</td>
+          <td class="num td-side-b">${b?fmtInt(b.reg):'—'}</td>
+        </tr>`;
+      }
+      tbody.innerHTML = rows;
+    }
+    renderPager('cCourseBenchmarkPager', benchCoursePage, totalPages, p=>{benchCoursePage=p; renderCourseBenchmarkTable();});
+  }
+
+  function renderInstrBenchmarkTable(){
+    const listA = datasetA.instructorList;
+    const listB = datasetB.instructorList;
+    const maxLen = Math.max(listA.length, listB.length);
+    const totalPages = Math.max(1, Math.ceil(maxLen / PAGE_SIZE));
+    if (benchInstrPage > totalPages) benchInstrPage = totalPages;
+    const start = (benchInstrPage-1)*PAGE_SIZE;
+    const end = Math.min(start+PAGE_SIZE, maxLen);
+
+    const tbody = document.getElementById('cInstrBenchmarkTbody');
+    if (!maxLen){
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">尚無資料</td></tr>`;
+    } else {
+      let rows = '';
+      for (let i=start;i<end;i++){
+        const a = listA[i], b = listB[i];
+        rows += `<tr>
+          <td class="center td-side-a">${a?rankPill(a.rank):'—'}</td>
+          <td class="name-strong td-side-a">${a?escapeHtml(a.instructor):'—'}</td>
+          <td class="num td-side-a">${a?fmtInt(a.reg):'—'}</td>
+          <td class="center td-side-b">${b?rankPill(b.rank):'—'}</td>
+          <td class="name-strong td-side-b">${b?escapeHtml(b.instructor):'—'}</td>
+          <td class="num td-side-b">${b?fmtInt(b.reg):'—'}</td>
+        </tr>`;
+      }
+      tbody.innerHTML = rows;
+    }
+    renderPager('cInstrBenchmarkPager', benchInstrPage, totalPages, p=>{benchInstrPage=p; renderInstrBenchmarkTable();});
+  }
+
+  document.getElementById('cCourseTable').querySelector('thead').addEventListener('click', e=>{
+    const th = e.target.closest('th');
+    if (!th) return;
+    const key = th.dataset.key;
+    if (cCourseSort.key === key) cCourseSort.dir *= -1;
+    else cCourseSort = {key, dir: -1};
+    cCoursePage = 1;
+    renderCourseCompareTable();
+  });
+  document.getElementById('cInstrTable').querySelector('thead').addEventListener('click', e=>{
+    const th = e.target.closest('th');
+    if (!th) return;
+    const key = th.dataset.key;
+    if (cInstrSort.key === key) cInstrSort.dir *= -1;
+    else cInstrSort = {key, dir: -1};
+    cInstrPage = 1;
+    renderInstrCompareTable();
+  });
+  document.getElementById('cCourseSearch').addEventListener('input', e=>{
+    cCourseFilter = e.target.value; cCoursePage = 1; renderCourseCompareTable();
+  });
+  document.getElementById('cInstrSearch').addEventListener('input', e=>{
+    cInstrFilter = e.target.value; cInstrPage = 1; renderInstrCompareTable();
+  });
+
+  document.querySelectorAll('.tab-btn[data-ctab]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const group = btn.closest('#compareDashboard');
+      group.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      group.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('cpanel-'+btn.dataset.ctab).classList.add('active');
+    });
+  });
+
+  function renderCompareAll(){
+    renderCompareStats();
+    const isBenchmark = comparisonType === 'benchmark';
+
+    document.getElementById('cCatMergedWrap').style.display = isBenchmark ? 'none' : 'block';
+    document.getElementById('cCatBenchmarkWrap').style.display = isBenchmark ? 'block' : 'none';
+    document.getElementById('cCourseMergedToolbar').style.display = isBenchmark ? 'none' : 'flex';
+    document.getElementById('cCourseMergedWrap').style.display = isBenchmark ? 'none' : 'block';
+    document.getElementById('cCourseBenchmarkWrap').style.display = isBenchmark ? 'block' : 'none';
+    document.getElementById('cInstrMergedToolbar').style.display = isBenchmark ? 'none' : 'flex';
+    document.getElementById('cInstrMergedWrap').style.display = isBenchmark ? 'none' : 'block';
+    document.getElementById('cInstrBenchmarkWrap').style.display = isBenchmark ? 'block' : 'none';
+
+    if (isBenchmark){
+      benchCoursePage = 1; benchInstrPage = 1;
+      renderCatBenchmarkTable();
+      renderCourseBenchmarkTable();
+      renderInstrBenchmarkTable();
+    } else {
+      renderCategoryCompareTable();
+      cCoursePage = 1; cInstrPage = 1;
+      renderCourseCompareTable();
+      renderInstrCompareTable();
+    }
+  }
+
+  function showCompareDashboard(){
+    hideAllScreens();
+    compareDashboard.style.display = 'block';
+    exportBtn.style.display = 'inline-flex';
+    reuploadBtn.style.display = 'inline-flex';
+
+    const tag = industryInput.value.trim() || '未標記';
+    const labelA = periodALabel.value.trim() || '期間 A';
+    const labelB = periodBLabel.value.trim() || '期間 B';
+
+    document.getElementById('cCtxIndustry').textContent = tag;
+    document.getElementById('cCtxType').textContent = typeDisplayName(comparisonType);
+    document.getElementById('cCtxLabelA').textContent = labelA;
+    document.getElementById('cCtxLabelB').textContent = labelB;
+    document.getElementById('cCtxTimestamp').textContent = '分析時間：' + new Date().toLocaleString('zh-Hant-TW');
+
+    ['cCatHeadViewsA','cCourseHeadViewsA','cInstrHeadViewsA'].forEach(id=>document.getElementById(id).textContent = labelA+'註冊人次');
+    ['cCatHeadRankA','cCourseHeadRankA','cInstrHeadRankA'].forEach(id=>document.getElementById(id).textContent = labelA+'排名');
+    ['cCatHeadViewsB','cCourseHeadViewsB','cInstrHeadViewsB'].forEach(id=>document.getElementById(id).textContent = labelB+'註冊人次');
+    ['cCatHeadRankB','cCourseHeadRankB','cInstrHeadRankB'].forEach(id=>document.getElementById(id).textContent = labelB+'排名');
+    const growthHeaderText = comparisonType === 'benchmark' ? '落差' : '成長率';
+    ['cCatHeadGrowth','cCourseHeadGrowth','cInstrHeadGrowth'].forEach(id=>document.getElementById(id).textContent = growthHeaderText);
+    document.getElementById('cCatHeadTopSubA').textContent = labelA+'最熱門子分類';
+    document.getElementById('cCatHeadTopSubB').textContent = labelB+'最熱門子分類';
+    document.getElementById('cGapPeriodLabel').textContent = labelB;
+
+    // benchmark-mode side-by-side headers
+    document.getElementById('cCatBenchHeadNameA').textContent = labelA+'：課程分類';
+    document.getElementById('cCatBenchHeadRegA').textContent = labelA+'：註冊人次';
+    document.getElementById('cCatBenchHeadSubA').textContent = labelA+'：最熱門子分類';
+    document.getElementById('cCatBenchHeadNameB').textContent = labelB+'：課程分類';
+    document.getElementById('cCatBenchHeadRegB').textContent = labelB+'：註冊人次';
+    document.getElementById('cCatBenchHeadSubB').textContent = labelB+'：最熱門子分類';
+    document.getElementById('cCourseBenchHeadNameA').textContent = labelA+'：課程名稱';
+    document.getElementById('cCourseBenchHeadRegA').textContent = labelA+'：註冊人次';
+    document.getElementById('cCourseBenchHeadNameB').textContent = labelB+'：課程名稱';
+    document.getElementById('cCourseBenchHeadRegB').textContent = labelB+'：註冊人次';
+    document.getElementById('cInstrBenchHeadNameA').textContent = labelA+'：講師名稱';
+    document.getElementById('cInstrBenchHeadRegA').textContent = labelA+'：註冊人次';
+    document.getElementById('cInstrBenchHeadNameB').textContent = labelB+'：講師名稱';
+    document.getElementById('cInstrBenchHeadRegB').textContent = labelB+'：註冊人次';
+
+    headerSub.textContent = `比較分析：${labelA} → ${labelB}（${typeDisplayName(comparisonType)}）`;
+
+    gapResultsCompare = null;
+    resetGapPanel('compare');
+    refreshGapPrompt('compare');
+  }
+
+  // =========================================================
+  // EXPORT TO EXCEL
+  // =========================================================
+  exportBtn.addEventListener('click', ()=>{
+    if (appMode === 'compare') exportCompareExcel();
+    else exportSingleExcel();
+  });
+
+  function safeName(s){ return String(s).replace(/[\\/:*?"<>|]/g,'_'); }
+
+  function gapResultsToAoa(gapResults){
+    const header = ['子分類','內部平均註冊人次','內部註冊百分位(%)','時事熱度評分','近期話題摘要','缺口標籤','商業效益說明'];
+    const rows = gapResults.stats.map(s=>{
+      const r = gapResults.resultsMap.get(s.subCategory);
+      if (!r || r.failed) return [s.subCategory, Math.round(s.avgReg), s.percentile, '', '分析失敗/暫無資料', '', ''];
+      return [s.subCategory, Math.round(s.avgReg), s.percentile, r.trendScore||'', r.newsSummary||'', r.gapLabel||'', r.businessInsight||''];
+    });
+    return [header].concat(rows);
+  }
+
+  function exportSingleExcel(){
+    const industry = industryInput.value.trim() || '未標記產業';
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10);
+    const wb = XLSX.utils.book_new();
+
+    const introRows = [
+      ['熱門訂閱課程分析'],
+      ['產業範圍：' + industry],
+      ['資料來源檔案：' + (sourceFileName || '—')],
+      ['匯出時間：' + now.toLocaleString('zh-Hant-TW')],
+      [],
+      ['本活頁簿內容：'],
+      ['1.「原始資料」－ 上傳之課程觀看排行原始明細（共 ' + rawRows.length + ' 筆課程）'],
+      ['2.「課程分類排名」－ 各課程分類依總觀看人次排序之熱門度分析'],
+      ['3.「熱門課程排行」－ 全部課程之總排名／分類內排名，含課程名稱與講師名稱'],
+      ['4.「熱門講師排名」－ 依講師總觀看人次加總，計算最受歡迎之講師排名'],
+      ['5.「技能缺口雷達」（若已執行分析）－ 各子分類之時事熱度評分、內部觀看落差與缺口標籤'],
+      [],
+      ['說明：本檔案為工具於匯出當下計算之靜態結果快照（非公式），如需更新請重新上傳最新資料。'],
+    ];
+    const ws0 = XLSX.utils.aoa_to_sheet(introRows);
+    ws0['!cols'] = [{wch:90}];
+    XLSX.utils.book_append_sheet(wb, ws0, '總覽說明');
+
+    const rawHeader = ['課程分類','子分類','課程名稱','講師名稱','上架時間','課程時長','課程評價','註冊人次','觀看人次','累計觀看小時'];
+    const rawAoa = [rawHeader].concat(rawRows.map(r=>[
+      r.category, r.subCategory, r.courseName, r.instructor, r.publishDate, r.duration,
+      isNaN(r.rating)?'':Number(r.rating.toFixed(2)), r.reg||0, r.views||0,
+      isNaN(r.hours)?'':Number(r.hours.toFixed(1))
+    ]));
+    const ws1 = XLSX.utils.aoa_to_sheet(rawAoa);
+    ws1['!cols'] = [{wch:10},{wch:14},{wch:42},{wch:22},{wch:12},{wch:10},{wch:9},{wch:9},{wch:9},{wch:13}];
+    XLSX.utils.book_append_sheet(wb, ws1, '原始資料');
+
+    const catHeader = ['排名','課程分類','課程數','總觀看人次','總註冊人次','平均課程評價','平均每堂觀看人次'];
+    const catAoa = [catHeader].concat(categoryList.map(c=>[
+      c.rank, c.category, c.count, c.views, c.reg,
+      isNaN(c.rating)?'':Number(c.rating.toFixed(2)), Math.round(c.avgViews)
+    ]));
+    const ws2 = XLSX.utils.aoa_to_sheet(catAoa);
+    ws2['!cols'] = [{wch:8},{wch:14},{wch:10},{wch:14},{wch:14},{wch:14},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws2, '課程分類排名');
+
+    const courseHeader = ['總排名','分類內排名','課程分類','子分類','課程名稱','講師名稱','課程時長','觀看人次','註冊人次','課程評價','累計觀看小時'];
+    const courseAoa = [courseHeader].concat(courseList.map(c=>[
+      c.rank, c.catRank, c.category, c.subCategory, c.courseName, c.instructor,
+      c.duration||'',
+      c.views||0, c.reg||0, isNaN(c.rating)?'':Number(c.rating.toFixed(2)),
+      isNaN(c.hours)?'':Number(c.hours.toFixed(1))
+    ]));
+    const ws3 = XLSX.utils.aoa_to_sheet(courseAoa);
+    ws3['!cols'] = [{wch:8},{wch:10},{wch:14},{wch:14},{wch:42},{wch:22},{wch:10},{wch:10},{wch:10},{wch:10},{wch:13}];
+    XLSX.utils.book_append_sheet(wb, ws3, '熱門課程排行');
+
+    const instrHeader = ['排名','講師名稱','開課數','總觀看人次','總註冊人次','平均課程評價','平均每堂觀看人次'];
+    const instrAoa = [instrHeader].concat(instructorList.map(c=>[
+      c.rank, c.instructor, c.count, c.views, c.reg,
+      isNaN(c.rating)?'':Number(c.rating.toFixed(2)), Math.round(c.avgViews)
+    ]));
+    const ws4 = XLSX.utils.aoa_to_sheet(instrAoa);
+    ws4['!cols'] = [{wch:8},{wch:30},{wch:10},{wch:14},{wch:14},{wch:14},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws4, '熱門講師排名');
+
+    if (gapResultsSingle){
+      const ws5 = XLSX.utils.aoa_to_sheet(gapResultsToAoa(gapResultsSingle));
+      ws5['!cols'] = [{wch:16},{wch:12},{wch:10},{wch:10},{wch:26},{wch:14},{wch:34}];
+      XLSX.utils.book_append_sheet(wb, ws5, '技能缺口雷達');
+    }
+
+    XLSX.writeFile(wb, `課程分析_${safeName(industry)}_${dateStr}.xlsx`);
+  }
+
+  function exportCompareExcel(){
+    const industry = industryInput.value.trim() || '未標記產業';
+    const labelA = periodALabel.value.trim() || '期間 A';
+    const labelB = periodBLabel.value.trim() || '期間 B';
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10);
+    const wb = XLSX.utils.book_new();
+
+    const fmtG = v => (v===Infinity) ? '新上榜' : (v===-Infinity ? '不再上榜' : (isNaN(v) ? '' : Number(v.toFixed(1))));
+    const fmtRC = v => v===null ? '' : v;
+
+    const introRows = [
+      ['熱門訂閱課程分析－期間比較（' + typeDisplayName(comparisonType) + '）'],
+      ['產業範圍：' + industry],
+      ['比較區間：' + labelA + ' → ' + labelB],
+      ['資料來源：' + (datasetA.fileName||'—') + '（期間A） / ' + (datasetB.fileName||'—') + '（期間B）'],
+      ['匯出時間：' + now.toLocaleString('zh-Hant-TW')],
+      [],
+      ['本活頁簿內容：'],
+      ['1.「期間A原始資料」「期間B原始資料」－ 兩份上傳檔案的原始明細'],
+      ['2.「課程分類排名比較」－ 各課程分類於兩期間之觀看人次、排名與成長率'],
+      ['3.「熱門課程排行比較」－ 逐堂課程於兩期間之觀看人次、排名變化與成長率（含新上榜／掉出榜單標記）'],
+      ['4.「熱門講師排名比較」－ 各講師於兩期間之總觀看人次、排名變化與成長率'],
+      ['5.「技能缺口雷達」（若已執行分析）－ 各子分類之時事熱度評分、內部觀看落差與缺口標籤'],
+      [],
+      ['說明：本檔案為工具於匯出當下計算之靜態結果快照（非公式），如需更新請重新上傳最新資料。'],
+    ];
+    const ws0 = XLSX.utils.aoa_to_sheet(introRows);
+    ws0['!cols'] = [{wch:90}];
+    XLSX.utils.book_append_sheet(wb, ws0, '總覽說明');
+
+    const rawHeader = ['課程分類','子分類','課程名稱','講師名稱','上架時間','課程時長','課程評價','註冊人次','觀看人次','累計觀看小時'];
+    function rawSheet(list){
+      return [rawHeader].concat(list.map(r=>[
+        r.category, r.subCategory, r.courseName, r.instructor, r.publishDate, r.duration,
+        isNaN(r.rating)?'':Number(r.rating.toFixed(2)), r.reg||0, r.views||0,
+        isNaN(r.hours)?'':Number(r.hours.toFixed(1))
+      ]));
+    }
+    const wsA = XLSX.utils.aoa_to_sheet(rawSheet(datasetA.rawRows));
+    wsA['!cols'] = [{wch:10},{wch:14},{wch:42},{wch:22},{wch:12},{wch:10},{wch:9},{wch:9},{wch:9},{wch:13}];
+    XLSX.utils.book_append_sheet(wb, wsA, safeName(labelA).slice(0,25)+'_原始資料');
+
+    const wsB = XLSX.utils.aoa_to_sheet(rawSheet(datasetB.rawRows));
+    wsB['!cols'] = [{wch:10},{wch:14},{wch:42},{wch:22},{wch:12},{wch:10},{wch:9},{wch:9},{wch:9},{wch:13}];
+    XLSX.utils.book_append_sheet(wb, wsB, safeName(labelB).slice(0,25)+'_原始資料');
+
+    const growthColHeader = comparisonType === 'benchmark' ? '落差(%)' : '成長率(%)';
+
+    if (comparisonType === 'benchmark'){
+      // ---- benchmark mode: side-by-side rankings, paired by rank position (no join/growth) ----
+      function sideBySideRows(listA, listB, rowFn){
+        const maxLen = Math.max(listA.length, listB.length);
+        const rows = [];
+        for (let i=0;i<maxLen;i++) rows.push(rowFn(listA[i]||null, listB[i]||null));
+        return rows;
+      }
+
+      const catHeader = ['排名', labelA+'：課程分類', labelA+'：註冊人次', labelA+'：最熱門子分類',
+                          '排名', labelB+'：課程分類', labelB+'：註冊人次', labelB+'：最熱門子分類'];
+      const catRows = sideBySideRows(datasetA.categoryList, datasetB.categoryList, (a,b)=>[
+        a?a.rank:'', a?a.category:'', a?a.reg:'', a?a.topSubCategory:'',
+        b?b.rank:'', b?b.category:'', b?b.reg:'', b?b.topSubCategory:'',
+      ]);
+      const ws2 = XLSX.utils.aoa_to_sheet([catHeader].concat(catRows));
+      ws2['!cols'] = [{wch:8},{wch:14},{wch:12},{wch:18},{wch:8},{wch:14},{wch:12},{wch:18}];
+      XLSX.utils.book_append_sheet(wb, ws2, '課程分類排名比較');
+
+      const courseHeader = ['排名', labelA+'：課程分類', labelA+'：課程名稱', labelA+'：講師名稱', labelA+'：註冊人次',
+                             '排名', labelB+'：課程分類', labelB+'：課程名稱', labelB+'：講師名稱', labelB+'：註冊人次'];
+      const courseRows = sideBySideRows(datasetA.courseList, datasetB.courseList, (a,b)=>[
+        a?a.rank:'', a?a.category:'', a?a.courseName:'', a?a.instructor:'', a?a.reg:'',
+        b?b.rank:'', b?b.category:'', b?b.courseName:'', b?b.instructor:'', b?b.reg:'',
+      ]);
+      const ws3 = XLSX.utils.aoa_to_sheet([courseHeader].concat(courseRows));
+      ws3['!cols'] = [{wch:8},{wch:14},{wch:38},{wch:20},{wch:12},{wch:8},{wch:14},{wch:38},{wch:20},{wch:12}];
+      XLSX.utils.book_append_sheet(wb, ws3, '熱門課程排行比較');
+
+      const instrHeader = ['排名', labelA+'：講師名稱', labelA+'：註冊人次',
+                            '排名', labelB+'：講師名稱', labelB+'：註冊人次'];
+      const instrRows = sideBySideRows(datasetA.instructorList, datasetB.instructorList, (a,b)=>[
+        a?a.rank:'', a?a.instructor:'', a?a.reg:'',
+        b?b.rank:'', b?b.instructor:'', b?b.reg:'',
+      ]);
+      const ws4 = XLSX.utils.aoa_to_sheet([instrHeader].concat(instrRows));
+      ws4['!cols'] = [{wch:8},{wch:26},{wch:12},{wch:8},{wch:26},{wch:12}];
+      XLSX.utils.book_append_sheet(wb, ws4, '熱門講師排名比較');
+
+    } else {
+      // category compare
+      const catHeader = ['課程分類', labelA+'註冊人次', labelA+'排名', labelB+'註冊人次', labelB+'排名', '排名變化', growthColHeader, '狀態', labelA+'最熱門子分類', labelB+'最熱門子分類'];
+      const catRows = cSortList(catCompareList, {key:'viewsB', dir:-1}).map(c=>[
+        c.category, c.viewsA, fmtRC(c.rankA), c.viewsB, fmtRC(c.rankB), fmtRC(c.rankChange), fmtG(c.growth),
+        c.status==='both'?'既有':(c.status==='new'?'新上榜':'掉出榜單'),
+        c.topSubA||'', c.topSubB||''
+      ]);
+      const ws2 = XLSX.utils.aoa_to_sheet([catHeader].concat(catRows));
+      ws2['!cols'] = [{wch:14},{wch:14},{wch:10},{wch:14},{wch:10},{wch:10},{wch:12},{wch:10},{wch:16},{wch:16}];
+      XLSX.utils.book_append_sheet(wb, ws2, '課程分類排名比較');
+
+      // course compare
+      const courseHeader = ['狀態','課程分類','課程名稱','講師名稱','課程時長', labelA+'註冊人次', labelA+'排名', labelB+'註冊人次', labelB+'排名', '排名變化', growthColHeader,'累計觀看小時'];
+      const courseRows = cSortList(courseCompareList, {key:'viewsB', dir:-1}).map(c=>[
+        c.status==='both'?'既有':(c.status==='new'?'新上榜':'掉出榜單'),
+        c.category, c.courseName, c.instructor, c.duration||'',
+        c.viewsA, fmtRC(c.rankA), c.viewsB, fmtRC(c.rankB), fmtRC(c.rankChange), fmtG(c.growth),
+        isNaN(c.hours)?'':Number((c.hours||0).toFixed(1))
+      ]);
+      const ws3 = XLSX.utils.aoa_to_sheet([courseHeader].concat(courseRows));
+      ws3['!cols'] = [{wch:10},{wch:14},{wch:42},{wch:22},{wch:10},{wch:12},{wch:10},{wch:12},{wch:10},{wch:10},{wch:12},{wch:13}];
+      XLSX.utils.book_append_sheet(wb, ws3, '熱門課程排行比較');
+
+      // instructor compare
+      const instrHeader = ['狀態','講師名稱', labelA+'註冊人次', labelA+'排名', labelB+'註冊人次', labelB+'排名', '排名變化', growthColHeader];
+      const instrRows = cSortList(instrCompareList, {key:'viewsB', dir:-1}).map(c=>[
+        c.status==='both'?'既有':(c.status==='new'?'新上榜':'掉出榜單'),
+        c.instructor, c.viewsA, fmtRC(c.rankA), c.viewsB, fmtRC(c.rankB), fmtRC(c.rankChange), fmtG(c.growth)
+      ]);
+      const ws4 = XLSX.utils.aoa_to_sheet([instrHeader].concat(instrRows));
+      ws4['!cols'] = [{wch:10},{wch:30},{wch:12},{wch:10},{wch:12},{wch:10},{wch:10},{wch:12}];
+      XLSX.utils.book_append_sheet(wb, ws4, '熱門講師排名比較');
+    }
+
+    if (gapResultsCompare){
+      const ws5 = XLSX.utils.aoa_to_sheet(gapResultsToAoa(gapResultsCompare));
+      ws5['!cols'] = [{wch:16},{wch:12},{wch:10},{wch:10},{wch:26},{wch:14},{wch:34}];
+      XLSX.utils.book_append_sheet(wb, ws5, '技能缺口雷達');
+    }
+
+    XLSX.writeFile(wb, `課程比較分析_${safeName(industry)}_${safeName(labelA)}_vs_${safeName(labelB)}_${dateStr}.xlsx`);
+  }
+
+  // =========================================================
+  // SKILL GAP RADAR: news-trend + internal-viewing-gap analysis
+  // =========================================================
+  let gapResultsSingle = null;   // {stats, resultsMap}
+  let gapResultsCompare = null;
+
+  function computeSubCategoryStats(rawRowsSrc){
+    const map = new Map();
+    rawRowsSrc.forEach(r=>{
+      const key = r.subCategory || '未分類';
+      if (!map.has(key)) map.set(key, {subCategory:key, category:r.category, count:0, totalReg:0});
+      const o = map.get(key);
+      o.count++; o.totalReg += (r.reg||0);
+    });
+    const list = Array.from(map.values()).map(o=>({...o, avgReg: o.count ? o.totalReg/o.count : 0}));
+    list.sort((a,b)=>a.avgReg-b.avgReg);
+    const n = list.length;
+    list.forEach((o,i)=>{ o.percentile = n>1 ? Math.round((i/(n-1))*100) : 50; });
+    return list;
+  }
+
+  function internalLevelLabel(percentile){
+    if (percentile <= 40) return {cls:'low', text:'偏低'};
+    if (percentile >= 61) return {cls:'high', text:'偏高'};
+    return {cls:'mid', text:'中等'};
+  }
+  function trendScoreColor(score){
+    if (score >= 70) return '#B34242';
+    if (score >= 40) return '#C89B2C';
+    return '#2E7D6B';
+  }
+  function gapBadgeHtml(label){
+    if (label === '高風險技能缺口') return `<span class="gap-badge risk">🔴 高風險技能缺口</span>`;
+    if (label === '已充分覆蓋') return `<span class="gap-badge covered">🟢 已充分覆蓋</span>`;
+    return `<span class="gap-badge normal">🟡 一般</span>`;
+  }
+
+  function extractJsonArray(text){
+    if (!text || !text.trim()) throw new Error('內容是空的');
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']');
+    if (start === -1 || end === -1 || end < start) throw new Error('找不到 JSON 陣列（[ ... ]）');
+    try {
+      return JSON.parse(text.slice(start, end+1));
+    } catch(e){
+      throw new Error('JSON 格式有誤：' + e.message);
+    }
+  }
+
+  function buildGapPromptFull(industry, statsList){
+    const listText = statsList.map(s =>
+      `- ${s.subCategory}（隸屬主分類：${s.category}；課程數 ${s.count}；內部平均註冊人次 ${Math.round(s.avgReg)}；內部註冊百分位 ${s.percentile}%，數字越低代表企業內部對此技能的訓練投入越少）`
+    ).join('\n');
+
+    return `你是企業教育訓練顧問。請搜尋近 30 天內與「${industry || '一般產業'}」相關、且和以下課程子分類主題相關的產業新聞、法規或趨勢話題，評估每個子分類目前的市場話題熱度，並結合我提供的「內部註冊百分位」數據（代表企業內部訓練投入水準）判斷是否存在技能缺口風險。
+
+子分類清單（請完整涵蓋以下全部 ${statsList.length} 個子分類，一個都不能少）：
+${listText}
+
+請針對清單中每一個子分類，回傳以下 JSON 陣列格式的結果。你可以先簡短說明搜尋到的重點，但請務必在回覆最後附上完整 JSON 陣列（可用 \`\`\`json 包起來），且陣列長度必須剛好是 ${statsList.length} 筆，對應清單中的每一個子分類：
+[{"subCategory":"子分類名稱（需與清單完全一致，包含標點與空格）","trendScore":0到100的整數（近30天話題熱度，100為最熱門）,"newsSummary":"不超過20個字的近期新聞話題摘要","gapLabel":"高風險技能缺口 或 一般 或 已充分覆蓋","businessInsight":"不超過40個字，給HR對主管報告用的一句話商業效益或風險說明"}]
+
+重要規則：
+1. 即使某個子分類搜尋不到明顯相關的近期新聞，也「必須」把它納入 JSON 陣列，不可省略。此時可將 trendScore 給 0～20 分的低分，newsSummary 寫「近期查無顯著相關新聞」，並依內部註冊百分位給出合理的 gapLabel 與 businessInsight（例如話題不熱但內部投入也低，可標記為「一般」）。
+2. subCategory 欄位請完全照抄清單中的名稱，不要翻譯、簡化或改寫。
+3. 判斷 gapLabel 原則：話題熱度高（trendScore>=65）且內部註冊百分位偏低（<=40）→「高風險技能缺口」；話題熱度高且內部註冊百分位也高（>60）→「已充分覆蓋」；其餘→「一般」。`;
+  }
+
+  function renderGapTable(stats, resultsMap, tableWrapId, tbodyId, onJump){
+    const tableWrap = document.getElementById(tableWrapId);
+    const tbody = document.getElementById(tbodyId);
+    tableWrap.style.display = 'block';
+
+    const rows = stats.map(s => ({...s, result: resultsMap.get(s.subCategory)}));
+    rows.sort((a,b)=>{
+      const order = l => l==='高風險技能缺口'?0:(l==='一般'?1:(l==='已充分覆蓋'?2:3));
+      const okA = a.result && !a.result.missing;
+      const okB = b.result && !b.result.missing;
+      const la = okA ? order(a.result.gapLabel) : 4;
+      const lb = okB ? order(b.result.gapLabel) : 4;
+      if (la !== lb) return la - lb;
+      const sa = okA ? (a.result.trendScore||0) : -1;
+      const sb = okB ? (b.result.trendScore||0) : -1;
+      return sb - sa;
+    });
+
+    tbody.innerHTML = rows.map(row=>{
+      const lvl = internalLevelLabel(row.percentile);
+      if (!row.result || row.result.missing){
+        return `<tr>
+          <td class="name-strong">${escapeHtml(row.subCategory)}</td>
+          <td class="num">${fmtInt(row.avgReg)}</td>
+          <td class="center"><span class="internal-level ${lvl.cls}">${lvl.text}</span></td>
+          <td colspan="4" class="center" style="color:var(--ink-faint);font-size:12px;">貼上的內容中找不到此子分類的資料，可能是 AI 回覆遺漏，可補問後重新貼上套用</td>
+        </tr>`;
+      }
+      const score = Math.max(0, Math.min(100, parseInt(row.result.trendScore,10) || 0));
+      const color = trendScoreColor(score);
+      return `<tr data-subcat="${escapeHtml(row.subCategory)}">
+        <td class="name-strong">${escapeHtml(row.subCategory)}</td>
+        <td class="num">${fmtInt(row.avgReg)}</td>
+        <td class="center"><span class="internal-level ${lvl.cls}">${lvl.text}（${row.percentile}%）</span></td>
+        <td class="center">
+          <span class="trend-score-num" style="color:${color};">${score}</span>
+        </td>
+        <td class="gap-insight-text">${escapeHtml(row.result.newsSummary || '—')}</td>
+        <td class="center">${gapBadgeHtml(row.result.gapLabel)}</td>
+        <td class="gap-insight-text">${escapeHtml(row.result.businessInsight || '—')}</td>
+      </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('tr[data-subcat]').forEach(tr=>{
+      tr.addEventListener('click', ()=>{ if (onJump) onJump(tr.dataset.subcat); });
+    });
+  }
+
+  function getScope(radioName){
+    const el = document.querySelector(`input[name="${radioName}"]:checked`);
+    return el ? el.value : 'top10';
+  }
+
+  let singleGapPromptStats = [];
+  let compareGapPromptStats = [];
+
+  function refreshGapPrompt(mode){
+    const industry = industryInput.value.trim();
+    const source = mode === 'single' ? rawRows : (datasetB ? datasetB.rawRows : null);
+    const previewId = mode === 'single' ? 'gapPromptPreview' : 'cGapPromptPreview';
+    const ta = document.getElementById(previewId);
+    if (!ta) return;
+    if (!source || !source.length){
+      ta.value = '（請先上傳課程資料，提示詞會自動產生於此）';
+      if (mode === 'single') singleGapPromptStats = []; else compareGapPromptStats = [];
+      return;
+    }
+    const scope = getScope(mode === 'single' ? 'gapScope' : 'cGapScope');
+    const fullStats = computeSubCategoryStats(source); // percentile computed against the FULL set
+    const stats = scope === 'top10' ? fullStats.slice().sort((a,b)=>b.totalReg-a.totalReg).slice(0,10) : fullStats;
+    if (mode === 'single') singleGapPromptStats = stats; else compareGapPromptStats = stats;
+    ta.value = buildGapPromptFull(industry, stats);
+  }
+
+  function copyGapPrompt(previewId, hintId){
+    const ta = document.getElementById(previewId);
+    ta.select();
+    const hint = document.getElementById(hintId);
+    const showHint = (msg) => { hint.textContent = msg; setTimeout(()=>{ hint.textContent=''; }, 2500); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(()=>showHint('已複製！')).catch(()=>showHint('請手動複製（已選取文字）'));
+    } else {
+      try { document.execCommand('copy'); showHint('已複製！'); }
+      catch(e){ showHint('請手動複製（已選取文字）'); }
+    }
+  }
+
+  function onJumpSingle(subCat){
+    document.querySelector('#dashboard .tab-btn[data-tab="course"]').click();
+    courseFilter = subCat;
+    document.getElementById('courseSearch').value = subCat;
+    coursePage = 1;
+    renderCourseTable();
+  }
+  function onJumpCompare(subCat){
+    document.querySelector('#compareDashboard .tab-btn[data-ctab="course"]').click();
+    cCourseFilter = subCat;
+    document.getElementById('cCourseSearch').value = subCat;
+    cCoursePage = 1;
+    renderCourseCompareTable();
+  }
+
+  let singleGapResultsMap = new Map();
+  let compareGapResultsMap = new Map();
+
+  function applyGapResult(mode){
+    const pasteId = mode === 'single' ? 'gapPasteBox' : 'cGapPasteBox';
+    const errorId = mode === 'single' ? 'gapError' : 'cGapError';
+    const tableWrapId = mode === 'single' ? 'gapTableWrap' : 'cGapTableWrap';
+    const tbodyId = mode === 'single' ? 'gapTbody' : 'cGapTbody';
+    const disclaimerId = mode === 'single' ? 'gapDisclaimer' : 'cGapDisclaimer';
+    const stats = mode === 'single' ? singleGapPromptStats : compareGapPromptStats;
+    const persistentMap = mode === 'single' ? singleGapResultsMap : compareGapResultsMap;
+    const errorEl = document.getElementById(errorId);
+    errorEl.style.display = 'none';
+
+    if (!stats || !stats.length){
+      errorEl.style.display = 'block';
+      errorEl.textContent = '請先確認已上傳課程資料，且上方已產生提示詞。';
+      return;
+    }
+    const text = document.getElementById(pasteId).value;
+    if (!text || !text.trim()){
+      errorEl.style.display = 'block';
+      errorEl.textContent = '請先將 AI 回覆的內容貼在上方欄位。';
+      return;
+    }
+    let arr;
+    try {
+      arr = extractJsonArray(text);
+    } catch(e){
+      errorEl.style.display = 'block';
+      errorEl.textContent = '無法從貼上的內容解析出結果：' + e.message + '。請確認已完整貼上 AI 回覆（包含 JSON 陣列的部分）。';
+      return;
+    }
+    if (!Array.isArray(arr) || !arr.length){
+      errorEl.style.display = 'block';
+      errorEl.textContent = '解析出的內容不是有效的資料陣列，請確認貼上的內容正確。';
+      return;
+    }
+
+    // Merge newly parsed items into the persistent map — a follow-up paste for just the
+    // missing subcategories will fill in the gaps rather than wiping out prior results.
+    let matchedCount = 0;
+    arr.forEach(item=>{
+      if (item && item.subCategory){
+        persistentMap.set(item.subCategory, item);
+        matchedCount++;
+      }
+    });
+    stats.forEach(s=>{ if (!persistentMap.has(s.subCategory)) persistentMap.set(s.subCategory, {missing:true}); });
+
+    const stillMissing = stats.filter(s=>{
+      const r = persistentMap.get(s.subCategory);
+      return !r || r.missing;
+    });
+
+    renderGapTable(stats, persistentMap, tableWrapId, tbodyId, mode === 'single' ? onJumpSingle : onJumpCompare);
+    document.getElementById(disclaimerId).style.display = 'block';
+
+    if (stillMissing.length){
+      errorEl.style.display = 'block';
+      errorEl.style.background = 'var(--gold-tint)';
+      errorEl.style.borderColor = '#E9D8A6';
+      errorEl.style.color = '#8A6D1F';
+      errorEl.textContent = `套用了 ${matchedCount} 筆結果，但仍有 ${stillMissing.length} 個子分類尚未取得資料（${stillMissing.map(s=>s.subCategory).join('、')}）。可以只針對這幾個子分類向 AI 追問，再把新的回覆貼到上方欄位並再次套用，不會覆蓋掉已經有的結果。`;
+    }
+
+    const result = {stats, resultsMap: persistentMap};
+    if (mode === 'single') gapResultsSingle = result; else gapResultsCompare = result;
+  }
+
+  function resetGapPanel(mode){
+    const ids = mode === 'single'
+      ? {tableWrap:'gapTableWrap', tbody:'gapTbody', disclaimer:'gapDisclaimer', error:'gapError', paste:'gapPasteBox'}
+      : {tableWrap:'cGapTableWrap', tbody:'cGapTbody', disclaimer:'cGapDisclaimer', error:'cGapError', paste:'cGapPasteBox'};
+    document.getElementById(ids.tableWrap).style.display = 'none';
+    document.getElementById(ids.tbody).innerHTML = '';
+    document.getElementById(ids.disclaimer).style.display = 'none';
+    const errorEl = document.getElementById(ids.error);
+    errorEl.style.display = 'none';
+    errorEl.style.background = ''; errorEl.style.borderColor = ''; errorEl.style.color = '';
+    document.getElementById(ids.paste).value = '';
+    if (mode === 'single') singleGapResultsMap = new Map(); else compareGapResultsMap = new Map();
+  }
+
+  document.getElementById('gapCopyBtn').addEventListener('click', ()=> copyGapPrompt('gapPromptPreview','gapCopyHint'));
+  document.getElementById('cGapCopyBtn').addEventListener('click', ()=> copyGapPrompt('cGapPromptPreview','cGapCopyHint'));
+  document.getElementById('gapApplyBtn').addEventListener('click', ()=> applyGapResult('single'));
+  document.getElementById('cGapApplyBtn').addEventListener('click', ()=> applyGapResult('compare'));
+
+  document.querySelectorAll('input[name="gapScope"]').forEach(r=> r.addEventListener('change', ()=> refreshGapPrompt('single')));
+  document.querySelectorAll('input[name="cGapScope"]').forEach(r=> r.addEventListener('change', ()=> refreshGapPrompt('compare')));
+  industryInput.addEventListener('input', ()=>{
+    if (dashboard.style.display === 'block') refreshGapPrompt('single');
+    if (compareDashboard.style.display === 'block') refreshGapPrompt('compare');
+  });
+
+  // ---------- init ----------
+  goToModeSelect();
+
+})();
+</script>
+</body>
+</html>
